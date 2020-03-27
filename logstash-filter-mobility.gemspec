@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = 'logstash-filter-mobility'
-  s.version = '1.0.0'
+  s.version = '1.0.1'
   s.licenses = ['GNU Affero General Public License']
   s.summary = "This filter classifies the ip analyzed in the event and categorizes it according to its origin."
   s.description = "This gem is a Logstash plugin required to be installed on top of the Logstash core pipeline using $LS_HOME/bin/logstash-plugin install gemname. This gem is not a stand-alone program"

@@ -5,9 +5,43 @@ require "logstash/namespace"
 require "json"
 require "time"
 require "dalli"
-require_relative "mobility/dimensions"
+require_relative "utils/dimensions"
 require_relative "mobility/locationData"
 
+module ConfigVariables
+  attr_accessor :consolidatedTime, :expiredTime,:maxDwellTime,:expiredRepetitionsTime
+  def self.setConsolidatedTime(value)
+    @@consolidatedTime = value
+  end
+
+  def self.consolidatedTime
+    @@consolidatedTime
+  end
+
+  def self.setExpiredTime(value)
+    @@expiredTime = value
+  end
+ 
+  def self.expiredTime
+    @@expiredTime
+  end
+
+  def self.setMaxDwellTime(value)
+    @@maxDwellTime = value
+  end
+
+  def self.maxDwellTime
+    @@maxDwellTime
+  end
+
+  def self.setExpiredRepetitionsTime(value)
+    @@expiredRepetitionsTime = value
+  end
+
+  def self.expiredRepetitionsTime
+    @@expiredRepetitionsTime
+  end
+end
 class LogStash::Filters::Mobility < LogStash::Filters::Base
 
   config_name "mobility"
@@ -23,8 +57,15 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
     @store = @memcached.get("location")
     @store = Hash.new if @store.nil?
   end
-
+  def self.expiredRepetitionsTime
+	return 7
+  end
   def register
+    ConfigVariables.setConsolidatedTime(@consolidatedTime)
+    ConfigVariables.setExpiredTime(@expiredTime)
+    ConfigVariables.setMaxDwellTime(@maxDwellTime)
+    ConfigVariables.setExpiredRepetitionsTime(@expiredRepetitionsTime)
+
     @store = {}
     @dimToDruid = [ MARKET_UUID, ORGANIZATION_UUID, ZONE_UUID, NAMESPACE_UUID,
                     DEPLOYMENT_UUID, SENSOR_UUID, NAMESPACE, SERVICE_PROVIDER_UUID, BUILDING_UUID, CAMPUS_UUID, FLOOR_UUID,
@@ -193,30 +234,42 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
      id = client + namespace
 
      if client
-       events = {}
+       events = []
        currentLocation = LocationData.locationFromMessage(event,id)
        cacheData = @store[id]
-
+       puts "CacheData is: "
+       puts  cacheData
+       puts "------ currentLocation is : "
+       puts currentLocation
        if cacheData
-        # cacheLocation = LocationData.locationFromCache(cacheData, id)
-        # events.merge!(cacheLocation.updateWithNewLocationData(currentLocation)
-        # locationMap = cacheLocation.toMap()
-        # @store[id] = locationMap
+         cacheLocation = LocationData.locationFromCache(cacheData, id)
+         events += cacheLocation.updateWithNewLocationData(currentLocation)
+         puts "cacheLocation.campus  is: "
+         puts cacheLocation.campus
+         locationMap = cacheLocation.toMap()
+         puts "locationMap is: "
+         puts locationMap
+         puts "id is: "
+         puts id
+         @store[id] = locationMap
          puts "Updating client ID[{#{id}] with [{#{locationMap}]"
        else
-        # locationMap = currentLocation.toMap()
-        # @store[id] = locationMap
+         locationMap = currentLocation.toMap()
+         @store[id] = locationMap
          puts "Creating client ID[{#{id}] with [{#{locationMap}]"
        end
-      
+       puts "the events are: "
+       puts events
+       puts "---"
        events.each do |e|
          # enrich |e| with extra info
-         e[CLIENT] = client 
-         @dimToEnrich.each { |d| e[d] = event.get(d) if event.get(d) }
+         e.set(CLIENT,client)
+         @dimToEnrich.each { |d| e.set(d, event.get(d)) if event.get(d) }
          #Prepare Event object to send it to the pipeline
-         enrichmentEvent = LogStash::Event.new
-         e.each {|k,v| enrichmentEvent.set(k,v)}
-         yield enrichmentEvent
+         #enrichmentEvent = LogStash::Event.new
+         #e.each {|k,v| enrichmentEvent.set(k,v)}
+         #yield enrichmentEvent
+         yield e
        end
        event.cancel
      end    
