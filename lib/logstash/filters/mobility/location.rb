@@ -41,7 +41,7 @@ class Location
     if args.count == 9
       initialize_all(args[0],args[1],args[2],args[3],args[4],args[5],args[6],args[7],args[8])
     elsif
-      initialize_location(args[0],args[2])
+      initialize_location(args[0],args[1])
     end
   end
 
@@ -50,10 +50,9 @@ class Location
     to_send = Array.new
     new_repetitions = @repeat_locations[location.new_loc] || 0
     old_repetitions = @repeat_locations[@new_loc] || 0
-
     ((location.t_last_seen - @t_last_seen) > ConfigVariables.expired_repetitions_time) and new_repetitions = 0 and old_repetitions = 0
 
-    popularity = Float((new_repetitions + 1).to_i / ((Float(@uuid) + 1) * 100.0) / 100.0)
+    popularity = (Float((new_repetitions + 1).to_i / ((Float(@uuid) + 1) * 100.0) / 100.0)).round(1)
 
     if (location.t_last_seen - @t_last_seen >= ConfigVariables.expired_time) 
       e = LogStash::Event.new
@@ -158,7 +157,7 @@ class Location
             end
             # // Increasing the session uuid because this is new session
             @uuid += 1
-            popularity = (((new_repetitions + 1) / (Float(@uuid) + 1)*100.0).to_i/100.0)
+            popularity = (((new_repetitions + 1) / (Float(@uuid) + 1)*100.0).to_i/100.0).round(1)
           end
 
           if (same_minute?(@t_transition, @t_global))

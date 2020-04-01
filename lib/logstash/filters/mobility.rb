@@ -70,12 +70,17 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
     @store = @memcached.get("location") || {}
   end
 
+  def save_store
+    @memcached.set("location",@store)
+  end
+
   def filter(event)
      client = event.get(CLIENT).to_s
-     namespace = (event.get(NAMESPACE)) ? event.get(NAMESPACE) : ""
+     
+     namespace = (event.get(NAMESPACE_UUID)) ? event.get(NAMESPACE_UUID) : ""
      id = client + namespace
-
      if client
+      # @store = @memcached.get("location") || {}
        events = []
        current_location = LocationData.location_from_message(event,id)
        cache_data = @store[id]
@@ -83,7 +88,7 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
          cache_location = LocationData.location_from_cache(cache_data, id)
          events += cache_location.update_with_new_location_data(current_location)
          location_map = cache_location.to_map
-         @store[id] = location_map
+         @store[id] = location_map 
          puts "Updating client ID[{#{id}] with [{#{location_map}]"
        else
          location_map = current_location.to_map

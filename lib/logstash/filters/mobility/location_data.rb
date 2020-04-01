@@ -51,10 +51,10 @@ class LocationData
   def to_map
     map = Hash.new
     map[T_GLOBAL_LAST_SEEN] = @t_global_last_seen
-    map[CAMPUS] = @campus.to_map if @campus
-    map[BUILDING] = @building.to_map if @building
-    map[FLOOR] = @floor.to_map if @floor
-    map[ZONE] = @zone.to_map if @zone
+    map[CAMPUS_UUID] = @campus.to_map if @campus
+    map[BUILDING_UUID] = @building.to_map if @building
+    map[FLOOR_UUID] = @floor.to_map if @floor
+    map[ZONE_UUID] = @zone.to_map if @zone
     
     return map
   end
@@ -73,16 +73,16 @@ class LocationData
     builder = LocationData.new
     builder.timestamp = Utils.timestamp_to_long(raw_data[T_GLOBAL_LAST_SEEN])
    
-    campus_data = raw_data[CAMPUS]
+    campus_data = raw_data[CAMPUS_UUID]
     builder.campus = Campus.new(campus_data,uuid_prefix) if campus_data
 
-    building_data = raw_data[BUILDING]
+    building_data = raw_data[BUILDING_UUID]
     builder.building = Campus.new(building_data,uuid_prefix) if building_data
 
-    floor_data = raw_data[FLOOR]
+    floor_data = raw_data[FLOOR_UUID]
     builder.floor = Floor.new(floor_data,uuid_prefix) if floor_data
 
-    zone_data = raw_data[ZONE]
+    zone_data = raw_data[ZONE_UUID]
     builder.zone = Campus.new(zone_data,uuid_prefix) if zone_data
 
     return builder
@@ -98,17 +98,17 @@ class LocationData
     builder = LocationData.new
     builder.timestamp = timestamp
     
-    campus = raw_data.get(CAMPUS).to_s
+    campus = raw_data.get(CAMPUS_UUID).to_s
     builder.campus = Campus.new(timestamp, timestamp, timestamp, "outside", campus, "outside", campus, lat_long, uuid_prefix) if campus
     
-    building = raw_data.get(BUILDING).to_s
+    building = raw_data.get(BUILDING_UUID).to_s
     builder.building = Building.new(timestamp, timestamp, timestamp, "outside", building, "outside", building, lat_long, uuid_prefix) if building
 
-    floor = raw_data.get(FLOOR).to_s
+    floor = raw_data.get(FLOOR_UUID).to_s
     builder.floor = Floor.new(timestamp, timestamp, timestamp, "outside", floor, "outside", floor, lat_long, uuid_prefix) if floor
 
-    zone = raw_data.get(ZONE).to_s
-    builder.zone = Floor.new(timestamp, timestamp, timestamp, "outside", zone, "outside", zone, lat_long, uuid_prefix) if zone
+    zone = raw_data.get(ZONE_UUID).to_s
+    builder.zone = Zone.new(timestamp, timestamp, timestamp, "outside", zone, "outside", zone, lat_long, uuid_prefix) if zone
 
     return builder
   end

@@ -1,11 +1,11 @@
 # version 1.0
 TIMESTAMP="timestamp"
 CLIENT="client_mac"
-NAMESPACE="namespace_uuid"
-CAMPUS="campus_uuid"
-BUILDING="building_uuid"
-FLOOR="floor_uuid"
-ZONE="zone_uuid"
+NAMESPACE="namespace"
+CAMPUS="campus"
+BUILDING="building"
+FLOOR="floor"
+ZONE="zone"
 
 T_GLOBAL_LAST_SEEN="t_global_last_seen"
 
