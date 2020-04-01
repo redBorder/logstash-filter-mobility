@@ -1,12 +1,16 @@
 # encoding: utf-8
 
+require "logstash/util/loggable"
+
 require_relative "../utils/dimensions"
 require_relative "../utils/utils"
 
 class Location
   attr_accessor :t_global, :t_last_seen, :t_transition, :dwell_time, :old_loc, :new_loc, 
                 :consolidated, :entrance, :lat_long, :uuid_prefix, :uuid, :repeat_locations
- 
+
+  include LogStash::Util::Loggable
+
   def initialize_all(t_global, t_last_seen, t_transition, old_loc, new_loc, consolidated, entrance, lat_long, uuid_prefix)
     @t_global = t_global - t_global % 60
     @t_last_seen = t_last_seen - t_last_seen % 60
@@ -106,7 +110,7 @@ class Location
             t += MINUTE
           end # end while
         end
-        puts "Consolidated state, sending [{#{to_send.size()}}] events"
+        logger.debug? && logger.debug("Consolidated state, sending [{#{to_send.size()}}] events")
         @t_last_seen = location.t_last_seen
       else
         if (location.t_last_seen - @t_last_seen >= ConfigVariables.consolidated_time)
@@ -153,7 +157,7 @@ class Location
                 t += MINUTE
               end
             else
-              puts "ERROR: (@t_global + MINUTE) > (@t_transition - MINUTE) => #{@t_global + MINUTE} > #{@t_transition - MINUTE}"
+              logger.error("ERROR: (@t_global + MINUTE) > (@t_transition - MINUTE) => #{@t_global + MINUTE} > #{@t_transition - MINUTE}")
             end
             # // Increasing the session uuid because this is new session
             @uuid += 1
@@ -166,7 +170,7 @@ class Location
           end
           @dwell_time = 1
           # // Transition
-          puts "@t_transition..@t_last_seen => #{@t_transition} .. #{@t_last_seen}"
+          logger.debug? && logger.debug("@t_transition..@t_last_seen => #{@t_transition} .. #{@t_last_seen}")
           if @t_transition <= @t_last_seen
             t = @t_transition
             #for t in @t_transition..@t_last_seen.step(MINUTE)
@@ -189,7 +193,7 @@ class Location
               t += MINUTE
             end
           else
-            puts "ERROR: @t_transition > @t_last_seen => #{@t_transition} .. #{@t_last_seen}"
+            logger.error("ERROR: @t_transition > @t_last_seen => #{@t_transition} .. #{@t_last_seen}")
           end
           @dwell_time = 1
           if (@t_last_seen + MINUTE) <= location.t_last_seen
@@ -213,9 +217,9 @@ class Location
               t += MINUTE
             end
           else
-            puts "ERROR: (@t_last_seen + MINUTE) > location => #{@t_last_seen + MINUTE} > #{location.t_last_seen}"
+            logger.error("ERROR: (@t_last_seen + MINUTE) > location => #{@t_last_seen + MINUTE} > #{location.t_last_seen}")
           end
-          puts "Consolidating state, sending [{#{to_send.count}}] events"
+          logger.debug? && logger.debug("Consolidating state, sending [{#{to_send.count}}] events")
           new_repetitions += 1
           @repeat_locations[location.new_loc] = new_repetitions
           @t_global = location.t_last_seen
@@ -226,12 +230,12 @@ class Location
           @consolidated = location.new_loc
           @lat_long = location.lat_long
         else
-          puts "Trying to consolidate state, but {location.t_last_seen[#{location.t_last_seen.to_s}] - t_last_seen[#{@t_last_seen.to_s}] < consolidated_time[#{ConfigVariables.consolidated_time.to_s}"
+          logger.debug? && logger.debug("Trying to consolidate state, but {location.t_last_seen[#{location.t_last_seen.to_s}] - t_last_seen[#{@t_last_seen.to_s}] < consolidated_time[#{ConfigVariables.consolidated_time.to_s}")
         end
 
       end
     else
-      puts "Moving from [{#{@new_loc}}] to [{#{location.new_loc}}]"
+      logger.debug? && logger.debug("Moving from [{#{@new_loc}}] to [{#{location.new_loc}}]")
       @t_last_seen = location.t_last_seen
       @old_loc = @new_loc
       @new_loc = location.new_loc

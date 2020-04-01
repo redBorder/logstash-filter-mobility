@@ -2,7 +2,7 @@ require "yaml"
 
 module MemcachedConfig
 
-  MEMCACHED_CONFIG_FILE="/opt/rb/var/www/rb-rails/config/memcached_config.yml"
+  MEMCACHED_CONFIG_FILE="/opt/rb/var/www/rb-rails/config/memcached_config.yml" unless defined? MEMCACHED_CONFIG_FILE
 
   def self.servers
    servers = []

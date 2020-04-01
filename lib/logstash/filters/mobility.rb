@@ -89,11 +89,11 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
          events += cache_location.update_with_new_location_data(current_location)
          location_map = cache_location.to_map
          @store[id] = location_map 
-         puts "Updating client ID[{#{id}] with [{#{location_map}]"
+         @logger.debug? && @logger.debug("Updating client ID[{#{id}] with [{#{location_map}]")
        else
          location_map = current_location.to_map
          @store[id] = location_map
-         puts "Creating client ID[{#{id}] with [{#{location_map}]"
+         @logger.debug? && @logger.debug("Creating client ID[{#{id}] with [{#{location_map}]")
        end
        events.each do |e|
          e.set(CLIENT,client)
