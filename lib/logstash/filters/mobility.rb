@@ -6,6 +6,7 @@ require "json"
 require "time"
 require "dalli"
 require_relative "utils/dimensions"
+require_relative "utils/memcached_config"
 require_relative "mobility/location_data"
 
 module ConfigVariables
@@ -46,10 +47,11 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
 
   config_name "mobility"
 
-  config :consolidated_time,       :validate => :number, :default => 180,   :required => false
-  config :expired_time,            :validate => :number, :default => 1200,  :required => false
+  config :consolidated_time,        :validate => :number, :default => 180,   :required => false
+  config :expired_time,             :validate => :number, :default => 1200,  :required => false
   config :max_dwell_time,           :validate => :number, :default => 1440,  :required => false
   config :expired_repetitions_time, :validate => :number, :default => 10080, :required => false
+  config :memcached_server,         :validate => :string, :default => "",    :required => false
   
   public
   def register
@@ -63,7 +65,8 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
                    DEPLOYMENT_UUID, SENSOR_UUID, NAMESPACE, SERVICE_PROVIDER_UUID, 
                    BUILDING_UUID, CAMPUS_UUID, FLOOR_UUID,
                    STATUS, CLIENT_PROFILE, CLIENT_RSSI_NUM]
-    @memcached = Dalli::Client.new("localhost:11211", {:expires_in => 0})
+    @memcached_server = MemcachedConfig::servers.first if @memcached_server.empty?
+    @memcached = Dalli::Client.new(@memcached_server, {:expires_in => 0})
     @store = @memcached.get("location") || {}
   end
 

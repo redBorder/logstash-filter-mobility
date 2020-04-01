@@ -84,7 +84,9 @@ class Location
     if @new_loc == location.new_loc
       if (@consolidated == (location.new_loc))
         if (!same_minute?(@t_last_seen, location.t_last_seen))
-          for t in ((@t_last_seen + MINUTE)..location.t_last_seen).step(MINUTE) do
+          t = @t_last_seen + MINUTE
+          #for t in ((@t_last_seen + MINUTE)..location.t_last_seen).step(MINUTE) do
+          while t <= location.t_last_seen
             if (@dwell_time <= ConfigVariables.max_dwell_time)
               e =  LogStash::Event.new
               e.set(TIMESTAMP, t)
@@ -102,7 +104,8 @@ class Location
               to_send.push(e)
             end
             @dwell_time += 1
-          end
+            t += MINUTE
+          end # end while
         end
         puts "Consolidated state, sending [{#{to_send.size()}}] events"
         @t_last_seen = location.t_last_seen
@@ -128,23 +131,30 @@ class Location
             @t_transition += MINUTE
           else
             # // Last Consolidated location
-            for t in (@t_global + MINUTE)..(@t_transition - MINUTE).step(MINUTE)
-              break if !same_minute?(t, (@t_transition - MINUTE))
-              e = LogStash::Event.new
-              e.set(TIMESTAMP, t)
-              e.set(OLD_LOC, @consolidated)
-              e.set(NEW_LOC, @consolidated)
-              e.set(SESSION, "#{@uuid_prefix}-#{@uuid}")
-              e.set(DWELL_TIME, @dwell_time)
-              e.set(location_with_uuid(location_type), @consolidated)
-              e.set(TRANSITION, 0)
-              e.set(REPETITIONS, old_repetitions)
-              e.set(POPULARITY, popularity)
-              e.set(TYPE, location_type)
-              e.set(LATLONG, location.lat_long) if location.lat_long
-
-              to_send.push(e)
-              @dwell_time += 1
+            if (@t_global + MINUTE) <= (@t_transition - MINUTE)
+              t = (@t_global + MINUTE)
+              #for t in (@t_global + MINUTE)..(@t_transition - MINUTE).step(MINUTE)
+              while t <= (@t_transition - MINUTE)
+                break if !same_minute?(t, (@t_transition - MINUTE))
+                e = LogStash::Event.new
+                e.set(TIMESTAMP, t)
+                e.set(OLD_LOC, @consolidated)
+                e.set(NEW_LOC, @consolidated)
+                e.set(SESSION, "#{@uuid_prefix}-#{@uuid}")
+                e.set(DWELL_TIME, @dwell_time)
+                e.set(location_with_uuid(location_type), @consolidated)
+                e.set(TRANSITION, 0)
+                e.set(REPETITIONS, old_repetitions)
+                e.set(POPULARITY, popularity)
+                e.set(TYPE, location_type)
+                e.set(LATLONG, location.lat_long) if location.lat_long
+  
+                to_send.push(e)
+                @dwell_time += 1
+                t += MINUTE
+              end
+            else
+              puts "ERROR: (@t_global + MINUTE) > (@t_transition - MINUTE) => #{@t_global + MINUTE} > #{@t_transition - MINUTE}"
             end
             # // Increasing the session uuid because this is new session
             @uuid += 1
@@ -157,39 +167,54 @@ class Location
           end
           @dwell_time = 1
           # // Transition
-          for t in @t_transition..@t_last_seen.step(MINUTE)
-            e = LogStash::Event.new
-            e.set(TIMESTAMP, t)
-            e.set(OLD_LOC, @consolidated)
-            e.set(NEW_LOC, location.new_loc)
-            e.set(SESSION, "#{@uuid_prefix}-#{@uuid}")
-            e.set(location_with_uuid(location_type), location.new_loc)
-            e.set(DWELL_TIME, @dwell_time)
-            e.set(TRANSITION, 1)
-            e.set(REPETITIONS, 0)
-            e.set(POPULARITY, popularity)
-            e.set(TYPE, location_type)
-            e.set(LATLONG, location.lat_long) if location.lat_long
+          puts "@t_transition..@t_last_seen => #{@t_transition} .. #{@t_last_seen}"
+          if @t_transition <= @t_last_seen
+            t = @t_transition
+            #for t in @t_transition..@t_last_seen.step(MINUTE)
+            while t <= (@t_last_seen)
+              e = LogStash::Event.new
+              e.set(TIMESTAMP, t)
+              e.set(OLD_LOC, @consolidated)
+              e.set(NEW_LOC, location.new_loc)
+              e.set(SESSION, "#{@uuid_prefix}-#{@uuid}")
+              e.set(location_with_uuid(location_type), location.new_loc)
+              e.set(DWELL_TIME, @dwell_time)
+              e.set(TRANSITION, 1)
+              e.set(REPETITIONS, 0)
+              e.set(POPULARITY, popularity)
+              e.set(TYPE, location_type)
+              e.set(LATLONG, location.lat_long) if location.lat_long
 
-            to_send.push(e)
-            @dwell_time += 1
+              to_send.push(e)
+              @dwell_time += 1
+              t += MINUTE
+            end
+          else
+            puts "ERROR: @t_transition > @t_last_seen => #{@t_transition} .. #{@t_last_seen}"
           end
           @dwell_time = 1
-          for t in (@t_last_seen + MINUTE)..location.t_last_seen.step(MINUTE)
-            e = LogStash::Event.new
-            e.set(TIMESTAMP, t)
-            e.set(OLD_LOC, location.new_loc)
-            e.set(NEW_LOC, location.new_loc)
-            e.set(SESSION, "#{@uuid_prefix}-#{@uuid}")
-            e.set(location_with_uuid(location_type), location.new_loc)
-            e.set(DWELL_TIME, @dwell_time)
-            e.set(TRANSITION, 0)
-            e.set(REPETITIONS, new_repetitions)
-            e.set(POPULARITY, popularity)
-            e.set(TYPE, location_type)
-            e.set(LATLONG, location.lat_long) if location.lat_long
-            to_send.push(e)
-            @dwell_time += 1
+          if (@t_last_seen + MINUTE) <= location.t_last_seen
+            t = (@t_last_seen + MINUTE)
+            #for t in (@t_last_seen + MINUTE)..location.t_last_seen.step(MINUTE)
+            while t <= location.t_last_seen
+              e = LogStash::Event.new
+              e.set(TIMESTAMP, t)
+              e.set(OLD_LOC, location.new_loc)
+              e.set(NEW_LOC, location.new_loc)
+              e.set(SESSION, "#{@uuid_prefix}-#{@uuid}")
+              e.set(location_with_uuid(location_type), location.new_loc)
+              e.set(DWELL_TIME, @dwell_time)
+              e.set(TRANSITION, 0)
+              e.set(REPETITIONS, new_repetitions)
+              e.set(POPULARITY, popularity)
+              e.set(TYPE, location_type)
+              e.set(LATLONG, location.lat_long) if location.lat_long
+              to_send.push(e)
+              @dwell_time += 1
+              t += MINUTE
+            end
+          else
+            puts "ERROR: (@t_last_seen + MINUTE) > location => #{@t_last_seen + MINUTE} > #{location.t_last_seen}"
           end
           puts "Consolidating state, sending [{#{to_send.count}}] events"
           new_repetitions += 1
