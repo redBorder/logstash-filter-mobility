@@ -4,39 +4,38 @@ require_relative "../utils/dimensions"
 require_relative "../utils/utils"
 
 class Location
-  attr_accessor :tGlobal, :tLastSeen, :tTransition, :dWellTime, :oldLoc, :newLoc, 
-                :consolidated, :entrance, :latLong, :uuidPrefix, :uuid, :repeatLocations
+  attr_accessor :t_global, :t_last_seen, :t_transition, :dwell_time, :old_loc, :new_loc, 
+                :consolidated, :entrance, :lat_long, :uuid_prefix, :uuid, :repeat_locations
  
-  def initialize_all(tGlobal, tLastSeen, tTransition, oldLoc, newLoc, consolidated, entrance, latLong, uuidPrefix)
-    self.tGlobal = tGlobal - tGlobal % 60
-    self.tLastSeen = tLastSeen - tLastSeen % 60
-    self.tTransition = tTransition - tTransition % 60
-    self.oldLoc = oldLoc
-    self.newLoc = newLoc
-    self.consolidated = consolidated
-    self.entrance = entrance
-    self.dWellTime = 1
-    self.latLong = latLong
-    self.uuidPrefix = uuidPrefix
-    self.uuid = 0
-    self.repeatLocations = Hash.new
+  def initialize_all(t_global, t_last_seen, t_transition, old_loc, new_loc, consolidated, entrance, lat_long, uuid_prefix)
+    @t_global = t_global - t_global % 60
+    @t_last_seen = t_last_seen - t_last_seen % 60
+    @t_transition = t_transition - t_transition % 60
+    @old_loc = old_loc
+    @new_loc = new_loc
+    @consolidated = consolidated
+    @entrance = entrance
+    @dwell_time = 1
+    @lat_long = lat_long
+    @uuid_prefix = uuid_prefix
+    @uuid = 0
+    @repeat_locations = Hash.new
   end 
 
-  def initialize_location(rawLocation, uuidPrefix)
-    self.tGlobal = Utils.timestamp2Long(rawLocation[T_GLOBAL]) 
-    self.tLastSeen = Utils.timestamp2Long(rawLocation[T_LAST_SEEN]) 
-    self.tTransition = Utils.timestamp2Long(rawLocation[T_TRANSITION])
-    self.dWellTime = rawLocation[DWELL_TIME].to_i
-    self.oldLoc = rawLocation[OLD_LOC].to_s
-    self.newLoc = rawLocation[NEW_LOC].to_s
-    self.consolidated = rawLocation[CONSOLIDATED].to_s
-    self.entrance = rawLocation[ENTRANCE].to_s
-    self.latLong = rawLocation[LATLONG].to_s
-    self.uuid = rawLocation[UUID].to_i # TODO: check if this integer is a long?
-    self.uuidPrefix = uuidPrefix
-    self.repeatLocations = rawLocation[REPEAT_LOCATION] # TODO: check if this is a Map or not
+  def initialize_location(raw_location, uuid_prefix)
+    @t_global = Utils.timestamp_to_long(raw_location[T_GLOBAL]) 
+    @t_last_seen = Utils.timestamp_to_long(raw_location[T_LAST_SEEN]) 
+    @t_transition = Utils.timestamp_to_long(raw_location[T_TRANSITION])
+    @dwell_time = raw_location[DWELL_TIME].to_i
+    @old_loc = raw_location[OLD_LOC].to_s
+    @new_loc = raw_location[NEW_LOC].to_s
+    @consolidated = raw_location[CONSOLIDATED].to_s
+    @entrance = raw_location[ENTRANCE].to_s
+    @lat_long = raw_location[LATLONG].to_s
+    @uuid = raw_location[UUID].to_i # TODO: check if this integer is a long?
+    @uuid_prefix = uuid_prefix
+    @repeat_locations = raw_location[REPEAT_LOCATION] || {} # TODO: check if this is a Map or not
 
-    repeatLocations = Hash.new if repeatLocations.nil?
   end
   def initialize(*args)
     if args.count == 9
@@ -47,195 +46,205 @@ class Location
   end
 
 
-  def updateWithNewLocation(location, locationType) 
-    toSend = Array.new
-    newRepetitions = repeatLocations[location.newLoc] || 0
-    oldRepetitions = repeatLocations[newLoc] || 0
-    puts "expiredRepetitionsTime is: "
-    puts ConfigVariables.expiredRepetitionsTime 
-    ((location.tLastSeen - tLastSeen) > ConfigVariables.expiredRepetitionsTime) and newRepetitions = 0 and oldRepetitions = 0
+  def update_with_new_location(location, location_type) 
+    to_send = Array.new
+    new_repetitions = @repeat_locations[location.new_loc] || 0
+    old_repetitions = @repeat_locations[@new_loc] || 0
+    puts "expired_repetitions_time is: "
+    puts ConfigVariables.expired_repetitions_time 
 
-    if (location.tLastSeen - tLastSeen >= ConfigVariables.expiredTime) 
+    ((location.t_last_seen - @t_last_seen) > ConfigVariables.expired_repetitions_time) and new_repetitions = 0 and old_repetitions = 0
+
+    popularity = Float((new_repetitions + 1).to_i / ((Float(@uuid) + 1) * 100.0) / 100.0)
+
+    if (location.t_last_seen - @t_last_seen >= ConfigVariables.expired_time) 
       e = LogStash::Event.new
-      e.set(TIMESTAMP, tLastSeen + MINUTE)
-      e.set(OLD_LOC, newLoc)
+      e.set(TIMESTAMP, @t_last_seen + MINUTE)
+      e.set(OLD_LOC, @new_loc)
       e.set(NEW_LOC, "outside")
-      e.set(DWELL_TIME, dWellTime)
+      e.set(DWELL_TIME, @dwell_time)
       e.set(TRANSITION, 1)
-      e.set(REPETITIONS, oldRepetitions)
+      e.set(REPETITIONS, @old_repetitions)
       e.set(POPULARITY, popularity)
-      e.set(SESSION, "#{uuidPrefix}-#{uuid}")
-      e.set(locationWithUuid(locationType), newLoc)
-      e.set(TYPE, locationType.type) 
-      toSend.push(e)
+      e.set(SESSION, "#{@uuid_prefix}-#{@uuid}")
+      e.set(location_with_uuid(location_type), @new_loc)
+      e.set(TYPE, location_type) 
+      to_send.push(e)
 
-      tGlobal = location.tGlobal
-      tLastSeen = location.tLastSeen
-      tTransition = location.tTransition
-      oldLoc = location.oldLoc
-      newLoc = location.newLoc
-      consolidated = location.consolidated
-      entrance = location.entrance
-      dWellTime = location.dWellTime
-      latLong = location.latLong
-      uuid += 1  
+      @t_global = location.t_global
+      @t_last_seen = location.t_last_seen
+      @t_transition = location.t_transition
+      @old_loc = location.old_loc
+      @new_loc = location.new_loc
+      @consolidated = location.consolidated
+      @entrance = location.entrance
+      @dwell_time = location.dwell_time
+      @lat_long = location.lat_long
+      @uuid += 1  
     end
 
-    if newLoc.eql?location.newLoc
-      if (consolidated.eql?(location.newLoc))
-        if (!isTheSameMinute(tLastSeen, location.tLastSeen))
-          for t in ((tLastSeen + MINUTE)..location.tLastSeen).step(MINUTE) do
-            if (dWellTime <= SamzaLocationTask.maxDwellTime)
+    if @new_loc == location.new_loc
+      puts "new loc es igual a location.new_loc"
+      if (@consolidated == (location.new_loc))
+        puts "consolidated es igual a location.new_loc"
+        if (!same_minute?(@t_last_seen, location.t_last_seen))
+          puts "t_last_seen y location.t_las_seen no estan en el mismo minuto"
+          for t in ((@t_last_seen + MINUTE)..location.t_last_seen).step(MINUTE) do
+            if (@dwell_time <= ConfigVariables.max_dwell_time)
               e =  LogStash::Event.new
               e.set(TIMESTAMP, t)
-              e.set(OLD_LOC, location.newLoc)
-              e.set(NEW_LOC, location.newLoc)
+              e.set(OLD_LOC, location.new_loc)
+              e.set(NEW_LOC, location.new_loc)
               e.set(TRANSITION, 0)
-              e.set(REPETITIONS, newRepetitions)
+              e.set(REPETITIONS, new_repetitions)
               e.set(POPULARITY, popularity)
-              e.set(DWELL_TIME, dWellTime)
-              e.set(SESSION, "#{uuidPrefix}-#{uuid}")
-              e.set(locationWithUuid(locationType), location.newLoc)
-              e.set(TYPE, locationType.type)
-              e.set(LATLONG, location.latLong) if location.latLong
+              e.set(DWELL_TIME, @dwell_time)
+              e.set(SESSION, "#{@uuid_prefix}-#{@uuid}")
+              e.set(location_with_uuid(location_type), location.new_loc)
+              e.set(TYPE, location_type)
+              e.set(LATLONG, location.lat_long) if location.lat_long
 
-              toSend.push(e)
+              to_send.push(e)
             end
-            dWellTime += 1
+            @dwell_time += 1
           end
         end
-        puts "Consolidated state, sending [{#{toSend.size()}}] events"
-        tLastSeen = location.tLastSeen
+        puts "Consolidated state, sending [{#{to_send.size()}}] events"
+        @t_last_seen = location.t_last_seen
       else
-        if (location.tLastSeen - tLastSeen >= ConfigVariables.consolidatedTime)
-          #repeatLocations[location.newLoc]
-          if consolidated.eql?"outside"
+        if (location.t_last_seen - @t_last_seen >= ConfigVariables.consolidated_time)
+          #repeat_locations[location.new_loc]
+          if consolidated == "outside"
             e =  LogStash::Event.new
-            e.set(TIMESTAMP, tGlobal)
-            e.set(OLD_LOC, consolidated)
-            e.set(NEW_LOC, entrance)
-            e.set(SESSION, "#{uuidPrefix}-#{uuid}")
-            e.set(locationWithUuid(locationType), entrance)
+            e.set(TIMESTAMP, @t_global)
+            e.set(OLD_LOC, @consolidated)
+            e.set(NEW_LOC, @entrance)
+            e.set(SESSION, "#{@uuid_prefix}-#{@uuid}")
+            e.set(location_with_uuid(location_type), @entrance)
             e.set(TRANSITION, 1)
             e.set(REPETITIONS, 0)
             e.set(POPULARITY, popularity)
             e.set(DWELL_TIME, 1)
-            e.set(TYPE, locationType.type)
-            e.set(LATLONG, location.latLong) if location.latLong
+            e.set(TYPE, location_type)
+            e.set(LATLONG, location.lat_long) if location.lat_long
             
-            toSend.push(e)
-            consolidated = entrance
-            tTransition += MINUTE
+            to_send.push(e)
+            @consolidated = @entrance
+            @t_transition += MINUTE
           else
             # // Last Consolidated location
-            for t in (tGlobal + MINUTE)..(tTransition - MINUTE).step(MINUTE)
-              break if !isTheSameMinute(t, (tTransition - MINUTE))
+            for t in (@t_global + MINUTE)..(@t_transition - MINUTE).step(MINUTE)
+              break if !same_minute?(t, (@t_transition - MINUTE))
               e = LogStash::Event.new
               e.set(TIMESTAMP, t)
-              e.set(OLD_LOC, consolidated)
-              e.set(NEW_LOC, consolidated)
-              e.set(SESSION, "#{uuidPrefix}-#{uuid}")
-              e.set(DWELL_TIME, dWellTime)
-              e.set(locationWithUuid(locationType), consolidated)
+              e.set(OLD_LOC, @consolidated)
+              e.set(NEW_LOC, @consolidated)
+              e.set(SESSION, "#{@uuid_prefix}-#{@uuid}")
+              e.set(DWELL_TIME, @dwell_time)
+              e.set(location_with_uuid(location_type), @consolidated)
               e.set(TRANSITION, 0)
-              e.set(REPETITIONS, oldRepetitions)
+              e.set(REPETITIONS, old_repetitions)
               e.set(POPULARITY, popularity)
-              e.set(TYPE, locationType.type)
-              e.set(LATLONG, location.latLong) if location.latLong
+              e.set(TYPE, location_type)
+              e.set(LATLONG, location.lat_long) if location.lat_long
 
-              toSend.push(e)
-              dWellTime += 1
+              to_send.push(e)
+              @dwell_time += 1
             end
             # // Increasing the session uuid because this is new session
-            uuid += 1
-            popularity = (((newRepetitions + 1) / (Float(uuid) + 1)*100.0).to_i/100.0)
+            @uuid += 1
+            popularity = (((new_repetitions + 1) / (Float(@uuid) + 1)*100.0).to_i/100.0)
           end
 
-          if (isTheSameMinute(tTransition, tGlobal))
-            tTransition += MINUTE
-            tLastSeen += MINUTE
+          if (same_minute?(@t_transition, @t_global))
+            @t_transition += MINUTE
+            @t_last_seen += MINUTE
           end
-          dWellTime = 1
+          @dwell_time = 1
           # // Transition
-          for t in tTransition..tLastSeen.step(MINUTE)
+          for t in @t_transition..@t_last_seen.step(MINUTE)
             e = LogStash::Event.new
             e.set(TIMESTAMP, t)
-            e.set(OLD_LOC, consolidated)
-            e.set(NEW_LOC, location.newLoc)
-            e.set(SESSION, "#{uuidPrefix}-#{uuid}")
-            e.set(locationWithUuid(locationType), location.newLoc)
-            e.set(DWELL_TIME, dWellTime)
+            e.set(OLD_LOC, @consolidated)
+            e.set(NEW_LOC, location.new_loc)
+            e.set(SESSION, "#{@uuid_prefix}-#{@uuid}")
+            e.set(location_with_uuid(location_type), location.new_loc)
+            e.set(DWELL_TIME, @dwell_time)
             e.set(TRANSITION, 1)
             e.set(REPETITIONS, 0)
             e.set(POPULARITY, popularity)
-            e.set(TYPE, locationType.type)
-            e.set(LATLONG, location.latLong) if location.latLong
+            e.set(TYPE, location_type)
+            e.set(LATLONG, location.lat_long) if location.lat_long
 
-            toSend.push(e)
-            dWellTime += 1
+            to_send.push(e)
+            @dwell_time += 1
           end
-          dWellTime = 1
-          for t in (tLastSeen + MINUTE)..location.tLastSeen.step(MINUTE)
+          @dwell_time = 1
+          for t in (@t_last_seen + MINUTE)..location.t_last_seen.step(MINUTE)
             e = LogStash::Event.new
             e.set(TIMESTAMP, t)
-            e.set(OLD_LOC, location.newLoc)
-            e.set(NEW_LOC, location.newLoc)
-            e.set(SESSION, "#{uuidPrefix}-#{uuid}")
-            e.set(locationWithUuid(locationType), location.newLoc)
-            e.set(DWELL_TIME, dWellTime)
+            e.set(OLD_LOC, location.new_loc)
+            e.set(NEW_LOC, location.new_loc)
+            e.set(SESSION, "#{@uuid_prefix}-#{@uuid}")
+            e.set(location_with_uuid(location_type), location.new_loc)
+            e.set(DWELL_TIME, @dwell_time)
             e.set(TRANSITION, 0)
-            e.set(REPETITIONS, newRepetitions)
+            e.set(REPETITIONS, new_repetitions)
             e.set(POPULARITY, popularity)
-            e.set(TYPE, locationType.type)
-            e.set(LATLONG, location.latLong) if location.latLong
-            toSend.push(e)
-            dWellTime += 1
+            e.set(TYPE, location_type)
+            e.set(LATLONG, location.lat_long) if location.lat_long
+            to_send.push(e)
+            @dwell_time += 1
           end
-          puts "Consolidating state, sending [{#{toSend.count}}] events"
-          newRepetitions += 1
-          repeatLocations[location.newLoc] = newRepetitions
-          tGlobal = location.tLastSeen
-          tLastSeen = location.tLastSeen
-          tTransition = location.tTransition
-          oldLoc = location.newLoc
-          newLoc = location.newLoc
-          consolidated = location.newLoc
-          latLong = location.latLong
+          puts "Consolidating state, sending [{#{to_send.count}}] events"
+          new_repetitions += 1
+          @repeat_locations[location.new_loc] = new_repetitions
+          @t_global = location.t_last_seen
+          @t_last_seen = location.t_last_seen
+          @t_transition = location.t_transition
+          @old_loc = location.new_loc
+          @new_loc = location.new_loc
+          @consolidated = location.new_loc
+          @lat_long = location.lat_long
         else
-          puts "Trying to consolidate state, but {location.tLastSeen[#{location.tLastSeen.to_s}] - tLastSeen[#{tLastSeen.to_s}] < consolidatedTime[#{ConfigVariables.consolidatedTime.to_s}"
+          puts "Trying to consolidate state, but {location.t_last_seen[#{location.t_last_seen.to_s}] - t_last_seen[#{@t_last_seen.to_s}] < consolidated_time[#{ConfigVariables.consolidated_time.to_s}"
         end
 
       end
     else
-      puts "Moving from [{#{newLoc}}] to [{#{location.newLoc}}]"
-      tLastSeen = location.tLastSeen
-      oldLoc = newLoc
-      newLoc = location.newLoc
+      puts "Moving from [{#{@new_loc}}] to [{#{location.new_loc}}]"
+      @t_last_seen = location.t_last_seen
+      @old_loc = @new_loc
+      @new_loc = location.new_loc
       # Leaving consolidated location.
-      tTransition = location.tLastSeen if oldLoc.eql?(consolidated)
+      @t_transition = location.t_last_seen if @old_loc == @consolidated
     end
-    return toSend
+    return to_send
   end
 
-  def toMap
+  def to_map
     map = Hash.new
-    map[T_GLOBAL] = tGlobal
-    map[T_LAST_SEEN] =  tLastSeen
-    map[T_TRANSITION] = tTransition
-    map[DWELL_TIME] = dWellTime
-    map[OLD_LOC] =  oldLoc
-    map[UUID] = uuid
-    map[NEW_LOC] = newLoc
-    map[CONSOLIDATED] = consolidated
-    map[ENTRANCE] = entrance
-    map[REPEAT_LOCATION] = repeatLocations
+    map[T_GLOBAL] = @t_global
+    map[T_LAST_SEEN] =  @t_last_seen
+    map[T_TRANSITION] = @t_transition
+    map[DWELL_TIME] = @dwell_time
+    map[OLD_LOC] =  @old_loc
+    map[UUID] = @uuid
+    map[NEW_LOC] = @new_loc
+    map[CONSOLIDATED] = @consolidated
+    map[ENTRANCE] = @entrance
+    map[REPEAT_LOCATION] = @repeat_locations
     
-    map[LATLONG] = latLong if latLong
+    map[LATLONG] = @lat_long if @lat_long
 
     return map
   end
 
-  def isTheSameMinute(time1, time2)
+  def location_with_uuid(type)
+    return type + "_uuid"
+  end
+
+  def same_minute?(time1, time2)
         return (time1 - time1 % MINUTE) == (time2 - time2 % MINUTE);
   end
 
