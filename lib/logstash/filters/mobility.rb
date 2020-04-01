@@ -65,7 +65,6 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
                    STATUS, CLIENT_PROFILE, CLIENT_RSSI_NUM]
     @memcached = Dalli::Client.new("localhost:11211", {:expires_in => 0})
     @store = @memcached.get("location") || {}
-    puts "Im mobility!"
   end
 
   def filter(event)
@@ -77,20 +76,10 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
        events = []
        current_location = LocationData.location_from_message(event,id)
        cache_data = @store[id]
-       puts "CacheData is: "
-       puts  cache_data
-       puts "------ current_location is : "
-       puts current_location
        if cache_data
          cache_location = LocationData.location_from_cache(cache_data, id)
          events += cache_location.update_with_new_location_data(current_location)
-         puts "cache_location.campus  is: "
-         puts cache_location.campus
          location_map = cache_location.to_map
-         puts "location_map is: "
-         puts location_map
-         puts "id is: "
-         puts id
          @store[id] = location_map
          puts "Updating client ID[{#{id}] with [{#{location_map}]"
        else
@@ -98,17 +87,9 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
          @store[id] = location_map
          puts "Creating client ID[{#{id}] with [{#{location_map}]"
        end
-       puts "the events are: "
-       puts events
-       puts "---"
        events.each do |e|
-         # enrich |e| with extra info
          e.set(CLIENT,client)
          @dim_to_enrich.each { |d| e.set(d, event.get(d)) if event.get(d) }
-         #Prepare Event object to send it to the pipeline
-         #enrichmentEvent = LogStash::Event.new
-         #e.each {|k,v| enrichmentEvent.set(k,v)}
-         #yield enrichmentEvent
          yield e
        end
        event.cancel

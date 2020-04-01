@@ -50,8 +50,6 @@ class Location
     to_send = Array.new
     new_repetitions = @repeat_locations[location.new_loc] || 0
     old_repetitions = @repeat_locations[@new_loc] || 0
-    puts "expired_repetitions_time is: "
-    puts ConfigVariables.expired_repetitions_time 
 
     ((location.t_last_seen - @t_last_seen) > ConfigVariables.expired_repetitions_time) and new_repetitions = 0 and old_repetitions = 0
 
@@ -84,11 +82,8 @@ class Location
     end
 
     if @new_loc == location.new_loc
-      puts "new loc es igual a location.new_loc"
       if (@consolidated == (location.new_loc))
-        puts "consolidated es igual a location.new_loc"
         if (!same_minute?(@t_last_seen, location.t_last_seen))
-          puts "t_last_seen y location.t_las_seen no estan en el mismo minuto"
           for t in ((@t_last_seen + MINUTE)..location.t_last_seen).step(MINUTE) do
             if (@dwell_time <= ConfigVariables.max_dwell_time)
               e =  LogStash::Event.new

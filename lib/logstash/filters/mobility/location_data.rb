@@ -23,12 +23,8 @@ class LocationData
     @t_global_last_seen = location_data.t_global_last_seen
 
     if @campus && location_data.campus
-      puts "im in update_with_new_location_data and campus is: "
-      puts @campus
       to_send += @campus.update_with_new_location(location_data.campus, "campus")
     elsif location_data.campus
-        puts "im in updateWihtNewLocationData campus was nill but location_data.campus is: "
-        puts location_data.campus
 	@campus = location_data.campus
     end
 
@@ -49,8 +45,6 @@ class LocationData
     elsif location_data.zone
         @zone = location_data.zone
     end
-    puts "in update_with_new_location_data to_send is: "
-    puts to_send
     return to_send
   end
 
@@ -76,10 +70,7 @@ class LocationData
   end
 
   def self.location_from_cache(raw_data, uuid_prefix)
-    puts "Im in location_from_cache"
     builder = LocationData.new
-    puts "!!!!!!!!!!! raw_data[T_GLOBAL_LAST_SEEN] es: " 
-    puts raw_data[T_GLOBAL_LAST_SEEN]
     builder.timestamp = Utils.timestamp_to_long(raw_data[T_GLOBAL_LAST_SEEN])
    
     campus_data = raw_data[CAMPUS]
@@ -94,9 +85,6 @@ class LocationData
     zone_data = raw_data[ZONE]
     builder.zone = Campus.new(zone_data,uuid_prefix) if zone_data
 
-    puts "builder in location_from_cache is: "
-    puts builder    
-    
     return builder
   end
 
@@ -105,9 +93,6 @@ class LocationData
   end
 
   def self.location_from_message(raw_data, uuid_prefix)
-    puts "Im in location_from_message"
-    puts "!!!!!!!!!!! raw_data.get[TIMESTAMP] es: " 
-    puts raw_data.get(TIMESTAMP)
     timestamp = Utils.timestamp_to_long(raw_data.get(TIMESTAMP))
     lat_long = raw_data.get(LATLONG).to_s
     builder = LocationData.new

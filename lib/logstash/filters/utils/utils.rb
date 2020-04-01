@@ -9,14 +9,6 @@ class Utils
     else
       result = Time.now.to_i 
     end
-    puts "**************************"
-    puts "me ha llegado: "
-    puts timestamp
-    puts "el resutl es: "
-    puts result
-    puts " y lo que devuelvo es:"
-    puts result - result % 60
-    puts "**************************"
     return result - result % 60
   end
 
