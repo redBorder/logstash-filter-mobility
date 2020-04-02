@@ -1,13 +1,15 @@
 # encoding: utf-8
 
-require_relative "../utils/dimensions"
+require_relative "../utils/mobility_constant"
 require_relative "../utils/utils"
 require_relative "building"
 require_relative "campus"
 require_relative "floor"
 require_relative "zone"
 
-class LocationData 
+class LocationData
+  include MobilityConstant
+ 
   attr_accessor :t_global_last_seen, :campus, :building, :floor, :zone
 
   def initialize(timestamp = nil, campus = nil, building = nil, floor = nil, zone = nil) 

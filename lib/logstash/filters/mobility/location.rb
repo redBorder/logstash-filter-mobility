@@ -2,14 +2,15 @@
 
 require "logstash/util/loggable"
 
-require_relative "../utils/dimensions"
+require_relative "../utils/mobility_constant"
 require_relative "../utils/utils"
 
 class Location
+  include LogStash::Util::Loggable
+  include MobilityConstant
+  
   attr_accessor :t_global, :t_last_seen, :t_transition, :dwell_time, :old_loc, :new_loc, 
                 :consolidated, :entrance, :lat_long, :uuid_prefix, :uuid, :repeat_locations
-
-  include LogStash::Util::Loggable
 
   def initialize_all(t_global, t_last_seen, t_transition, old_loc, new_loc, consolidated, entrance, lat_long, uuid_prefix)
     @t_global = t_global - t_global % 60
@@ -157,7 +158,7 @@ class Location
                 t += MINUTE
               end
             else
-              logger.error("ERROR: (@t_global + MINUTE) > (@t_transition - MINUTE) => #{@t_global + MINUTE} > #{@t_transition - MINUTE}")
+              logger.debug? && logger.debug("ERROR: (@t_global + MINUTE) > (@t_transition - MINUTE) => #{@t_global + MINUTE} > #{@t_transition - MINUTE}")
             end
             # // Increasing the session uuid because this is new session
             @uuid += 1
@@ -193,7 +194,7 @@ class Location
               t += MINUTE
             end
           else
-            logger.error("ERROR: @t_transition > @t_last_seen => #{@t_transition} .. #{@t_last_seen}")
+            logger.debug? && logger.debug("ERROR: @t_transition > @t_last_seen => #{@t_transition} .. #{@t_last_seen}")
           end
           @dwell_time = 1
           if (@t_last_seen + MINUTE) <= location.t_last_seen
@@ -217,7 +218,7 @@ class Location
               t += MINUTE
             end
           else
-            logger.error("ERROR: (@t_last_seen + MINUTE) > location => #{@t_last_seen + MINUTE} > #{location.t_last_seen}")
+            logger.debug? && logger.debug("ERROR: (@t_last_seen + MINUTE) > location => #{@t_last_seen + MINUTE} > #{location.t_last_seen}")
           end
           logger.debug? && logger.debug("Consolidating state, sending [{#{to_send.count}}] events")
           new_repetitions += 1

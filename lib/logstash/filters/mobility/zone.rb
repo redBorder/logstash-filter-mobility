@@ -1,6 +1,5 @@
 # encoding: utf-8
 
-require_relative "../utils/dimensions"
 require_relative "location"
 
 class Zone < Location

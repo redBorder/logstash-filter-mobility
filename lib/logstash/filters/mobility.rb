@@ -5,7 +5,7 @@ require "logstash/namespace"
 require "json"
 require "time"
 require "dalli"
-require_relative "utils/dimensions"
+require_relative "utils/mobility_constant"
 require_relative "utils/memcached_config"
 require_relative "mobility/location_data"
 
@@ -44,6 +44,7 @@ module ConfigVariables
   end
 end
 class LogStash::Filters::Mobility < LogStash::Filters::Base
+  include MobilityConstant
 
   config_name "mobility"
 
