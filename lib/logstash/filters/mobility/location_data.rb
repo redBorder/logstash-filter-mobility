@@ -79,13 +79,13 @@ class LocationData
     builder.campus = Campus.new(campus_data,uuid_prefix) if campus_data
 
     building_data = raw_data[BUILDING_UUID]
-    builder.building = Campus.new(building_data,uuid_prefix) if building_data
+    builder.building = Bulding.new(building_data,uuid_prefix) if building_data
 
     floor_data = raw_data[FLOOR_UUID]
     builder.floor = Floor.new(floor_data,uuid_prefix) if floor_data
 
     zone_data = raw_data[ZONE_UUID]
-    builder.zone = Campus.new(zone_data,uuid_prefix) if zone_data
+    builder.zone = Zone.new(zone_data,uuid_prefix) if zone_data
 
     return builder
   end
