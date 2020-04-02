@@ -79,7 +79,7 @@ class LocationData
     builder.campus = Campus.new(campus_data,uuid_prefix) if campus_data
 
     building_data = raw_data[BUILDING_UUID]
-    builder.building = Bulding.new(building_data,uuid_prefix) if building_data
+    builder.building = Building.new(building_data,uuid_prefix) if building_data
 
     floor_data = raw_data[FLOOR_UUID]
     builder.floor = Floor.new(floor_data,uuid_prefix) if floor_data
