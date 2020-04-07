@@ -67,7 +67,7 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
                    BUILDING_UUID, CAMPUS_UUID, FLOOR_UUID,
                    STATUS, CLIENT_PROFILE, CLIENT_RSSI_NUM]
     @memcached_server = MemcachedConfig::servers.first if @memcached_server.empty?
-    @memcached = Dalli::Client.new(@memcached_server, {:expires_in => 0})
+    @memcached = Dalli::Client.new(@memcached_server, {:expires_in => 0, :value_max_bytes => 4000000})
     @store = @memcached.get("location") || {}
   end
 
@@ -91,10 +91,12 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
          location_map = cache_location.to_map
          @store[id] = location_map 
          @logger.debug? && @logger.debug("Updating client ID[{#{id}] with [{#{location_map}]")
+         #puts "updating.."
        else
          location_map = current_location.to_map
          @store[id] = location_map
          @logger.debug? && @logger.debug("Creating client ID[{#{id}] with [{#{location_map}]")
+         #puts "creating.."
        end
        events.each do |e|
          e.set(CLIENT,client)

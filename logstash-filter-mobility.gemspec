@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = 'logstash-filter-mobility'
-  s.version = '1.0.2'
+  s.version = '1.0.3333'
   s.licenses = ['GNU Affero General Public License']
   s.summary = "This filter is part of the redBorder enrich system. Calculate movement information that the logstash-filter-location filter provide."
   s.description = "This gem is a Logstash plugin required to be installed on top of the Logstash core pipeline using $LS_HOME/bin/logstash-plugin install gemname. This gem is not a stand-alone program"
