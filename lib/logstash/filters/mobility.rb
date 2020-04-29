@@ -81,7 +81,7 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
      namespace = (event.get(NAMESPACE_UUID)) ? event.get(NAMESPACE_UUID) : ""
      id = client + namespace
      if client
-      # @store = @memcached.get("location") || {}
+       @store = @memcached.get("location") || {}
        events = []
        current_location = LocationData.location_from_message(event,id)
        cache_data = @store[id]
@@ -104,6 +104,7 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
          yield e
        end
        event.cancel
+       @memcached.set("location",@store)
      end    
  
   end  # def filter
