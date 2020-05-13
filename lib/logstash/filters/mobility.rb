@@ -61,30 +61,43 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
     ConfigVariables.setMaxDwellTime(@max_dwell_time)
     ConfigVariables.setExpiredRepetitionsTime(@expired_repetitions_time)
 
-    @store = {}
+    @stores = {}
     @dim_to_enrich = [MARKET_UUID, ORGANIZATION_UUID, ZONE_UUID, NAMESPACE_UUID,
                    DEPLOYMENT_UUID, SENSOR_UUID, NAMESPACE, SERVICE_PROVIDER_UUID, 
                    BUILDING_UUID, CAMPUS_UUID, FLOOR_UUID,
                    STATUS, CLIENT_PROFILE, CLIENT_RSSI_NUM]
     @memcached_server = MemcachedConfig::servers if @memcached_server.empty?
     @memcached = Dalli::Client.new(@memcached_server, {:expires_in => 0, :value_max_bytes => 4000000})
-    @store = @memcached.get("location") || {}
   end
 
   def save_store
-    @memcached.set("location",@store)
+    @memcached.set("mobility",@store)
+  end
+
+  # Get all the stores of mobility
+  # and store it on @stores
+  def stores_from_memcache
+    @stores = @memcached.get_multi("mobility","mobility-historical") || {}
+  end
+
+  def find_data_from_stores(key)
+    data = nil
+    @stores.values.each do |store|
+      data = store[key]
+      break if data
+    end
+    data
   end
 
   def filter(event)
      client = event.get(CLIENT).to_s
-     
      namespace = (event.get(NAMESPACE_UUID)) ? event.get(NAMESPACE_UUID) : ""
      id = client + namespace
      if client
-       @store = @memcached.get("location") || {}
+       @store = stores_from_memcache["mobility"] || {}
        events = []
        current_location = LocationData.location_from_message(event,id)
-       cache_data = @store[id]
+       cache_data = find_data_from_stores(id)
        if cache_data
          cache_location = LocationData.location_from_cache(cache_data, id)
          events += cache_location.update_with_new_location_data(current_location)
@@ -104,7 +117,7 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
          yield e
        end
        event.cancel
-       @memcached.set("location",@store)
+       save_store
      end    
  
   end  # def filter
