@@ -10,7 +10,7 @@ require_relative "utils/memcached_config"
 require_relative "mobility/location_data"
 
 module ConfigVariables
-  attr_accessor :consolidated_time, :expired_time,:max_dwell_time,:expired_repetitions_time
+  attr_accessor :consolidated_time, :expired_time,:max_dwell_time,:expired_repetitions_time, :max_keys_mobility_to_clean
   def self.setConsolidatedTime(value)
     @@consolidated_time = value
   end
@@ -42,25 +42,37 @@ module ConfigVariables
   def self.expired_repetitions_time
     @@expired_repetitions_time
   end
+
+  def self.setMaxKeysMobilityToClean(value)
+    @@max_keys_mobility_to_clean = value
+  end
+
+  def self.max_keys_mobility_to_clean
+    @@max_keys_mobility_to_clean
+  end
+
 end
+
 class LogStash::Filters::Mobility < LogStash::Filters::Base
   include MobilityConstant
 
   config_name "mobility"
 
-  config :consolidated_time,        :validate => :number, :default => 180,   :required => false
-  config :expired_time,             :validate => :number, :default => 1200,  :required => false
-  config :max_dwell_time,           :validate => :number, :default => 1440,  :required => false
-  config :expired_repetitions_time, :validate => :number, :default => 10080, :required => false
-  config :memcached_server,         :validate => :string, :default => "",    :required => false
+  config :consolidated_time,          :validate => :number, :default => 180,   :required => false
+  config :expired_time,               :validate => :number, :default => 1200,  :required => false
+  config :max_dwell_time,             :validate => :number, :default => 1440,  :required => false
+  config :expired_repetitions_time,   :validate => :number, :default => 10080, :required => false
+  config :memcached_server,           :validate => :string, :default => "",    :required => false
+  config :max_keys_mobility_to_clean, :validate => :number, :default => 700,   :required => false
   
   public
   def register
+    
     ConfigVariables.setConsolidatedTime(@consolidated_time)
     ConfigVariables.setExpiredTime(@expired_time)
     ConfigVariables.setMaxDwellTime(@max_dwell_time)
     ConfigVariables.setExpiredRepetitionsTime(@expired_repetitions_time)
-
+    ConfigVariables.setMaxKeysMobilityToClean(@max_keys_mobility_to_clean)
     @stores = {}
     @dim_to_enrich = [MARKET_UUID, ORGANIZATION_UUID, ZONE_UUID, NAMESPACE_UUID,
                    DEPLOYMENT_UUID, SENSOR_UUID, NAMESPACE, SERVICE_PROVIDER_UUID, 
@@ -71,7 +83,7 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
   end
 
   def save_store
-    @memcached.set("mobility",@store)
+      @memcached.set("mobility",@store)
   end
 
   # Get all the stores of mobility
@@ -98,6 +110,7 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
        events = []
        current_location = LocationData.location_from_message(event,id)
        cache_data = find_data_from_stores(id)
+       @store.delete(id) if @store.key? (id)
        if cache_data
          cache_location = LocationData.location_from_cache(cache_data, id)
          events += cache_location.update_with_new_location_data(current_location)
@@ -111,6 +124,7 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
          @logger.debug? && @logger.debug("Creating client ID[{#{id}] with [{#{location_map}]")
          #puts "creating.."
        end
+       @store = @store.map{|h| h}[(-@max_keys_mobility_to_clean+100)..-1].to_h if @store.keys.count > @max_keys_mobility_to_clean
        events.each do |e|
          e.set(CLIENT,client)
          @dim_to_enrich.each { |d| e.set(d, event.get(d)) if event.get(d) }
