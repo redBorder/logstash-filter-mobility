@@ -63,7 +63,7 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
   config :max_dwell_time,             :validate => :number, :default => 1440,  :required => false
   config :expired_repetitions_time,   :validate => :number, :default => 10080, :required => false
   config :memcached_server,           :validate => :string, :default => "",    :required => false
-  config :max_keys_mobility_to_clean, :validate => :number, :default => 700,   :required => false
+  config :max_keys_mobility_to_clean, :validate => :number, :default => 300,   :required => false
   
   public
   def register
@@ -78,6 +78,7 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
                    DEPLOYMENT_UUID, SENSOR_UUID, NAMESPACE, SERVICE_PROVIDER_UUID, 
                    BUILDING_UUID, CAMPUS_UUID, FLOOR_UUID,
                    STATUS, CLIENT_PROFILE, CLIENT_RSSI_NUM]
+    @not_empty_dims = [ZONE_UUID, ZONE, BUILDING_UUID, BUILDING, FLOOR, FLOOR_UUID, CAMPUS, CAMPUS_UUID]
     @memcached_server = MemcachedConfig::servers if @memcached_server.empty?
     @memcached = Dalli::Client.new(@memcached_server, {:expires_in => 0, :value_max_bytes => 4000000})
   end
@@ -124,10 +125,11 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
          @logger.debug? && @logger.debug("Creating client ID[{#{id}] with [{#{location_map}]")
          #puts "creating.."
        end
-       @store = @store.map{|h| h}[(-@max_keys_mobility_to_clean+100)..-1].to_h if @store.keys.count > @max_keys_mobility_to_clean
+       @store = @store.map{|h| h}[(-@max_keys_mobility_to_clean+50)..-1].to_h if @store.keys.count > @max_keys_mobility_to_clean
        events.each do |e|
          e.set(CLIENT,client)
          @dim_to_enrich.each { |d| e.set(d, event.get(d)) if event.get(d) }
+         e.to_hash.each { |k,v| e.set("discard", true) if @not_empty_dims.include? k and (v.nil? or v == "") }
          yield e
        end
        event.cancel
