@@ -64,6 +64,8 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
   config :expired_repetitions_time,   :validate => :number, :default => 10080, :required => false
   config :memcached_server,           :validate => :string, :default => "",    :required => false
   config :max_keys_mobility_to_clean, :validate => :number, :default => 300,   :required => false
+  config :clean_store_time,           :validate => :number, :default => 600,   :required => false
+  config :number_of_stores,           :validate => :number, :default => 10,    :required => false
   
   public
   def register
@@ -81,16 +83,38 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
     @not_empty_dims = [ZONE_UUID, ZONE, BUILDING_UUID, BUILDING, FLOOR, FLOOR_UUID, CAMPUS, CAMPUS_UUID]
     @memcached_server = MemcachedConfig::servers if @memcached_server.empty?
     @memcached = Dalli::Client.new(@memcached_server, {:expires_in => 0, :value_max_bytes => 4000000})
+    @last_clean_time = Time.now.to_i
   end
 
-  def save_store
-      @memcached.set("mobility",@store)
+  # clean the store based on last_seen
+  def clean_stores(number_of_stores)
+    if Time.now.to_i > (@last_clean_time + @clean_store_time)
+      puts "cleaning mobility stores....#{Time.now}"
+      for store_id in 0 .. number_of_stores-1
+        @store = stores_from_memcache(store_id)["mobility#{store_id}"] || {}
+        ids_to_delete = []
+        @store.each do |client| 
+          if client[1] && client[1]["campus_uuid"] && client[1]["campus_uuid"]["t_last_seen"]
+            if Time.now.to_i > (client[1]["campus_uuid"]["t_last_seen"] + (@expired_time + 60))
+              ids_to_delete.push(client[0])
+            end
+          end
+        end
+        ids_to_delete.each{ |id| @store.delete(id) if @store.key? (id) }
+        save_store(store_id)
+      end
+      @last_clean_time = Time.now.to_i
+    end
+  end
+
+  def save_store(id)
+      @memcached.set("mobility#{id}",@store)
   end
 
   # Get all the stores of mobility
   # and store it on @stores
-  def stores_from_memcache
-    @stores = @memcached.get_multi("mobility","mobility-historical") || {}
+  def stores_from_memcache(store_id)
+    @stores = @memcached.get_multi("mobility#{store_id}","mobility-historical#{store_id}") || {}
   end
 
   def find_data_from_stores(key)
@@ -102,12 +126,32 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
     data
   end
 
+  def find_data_from_stores(key)
+    data = nil
+    @stores.values.each do |store|
+      data = store[key]
+      break if data
+    end
+    data
+  end
+
+  def hash_mac(mac_address)
+    Digest::SHA256.hexdigest(mac_address).to_i(16)
+  end
+  
+  def assign_store(mac_address, number_of_stores)
+    hash_value = hash_mac(mac_address)
+    hash_value % number_of_stores
+  end
+
   def filter(event)
+     clean_stores(@number_of_stores)
      client = event.get(CLIENT).to_s
      namespace = (event.get(NAMESPACE_UUID)) ? event.get(NAMESPACE_UUID) : ""
      id = client + namespace
      if client
-       @store = stores_from_memcache["mobility"] || {}
+       store_id = assign_store(client, @number_of_stores)
+       @store = stores_from_memcache(store_id)["mobility#{store_id}"] || {}
        events = []
        current_location = LocationData.location_from_message(event,id)
        cache_data = find_data_from_stores(id)
@@ -125,7 +169,12 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
          @logger.debug? && @logger.debug("Creating client ID[{#{id}] with [{#{location_map}]")
          #puts "creating.."
        end
-       @store = @store.map{|h| h}[(-@max_keys_mobility_to_clean+50)..-1].to_h if @store.keys.count > @max_keys_mobility_to_clean
+
+       #limit the number of keys in the store
+       if @store.keys.count > @max_keys_mobility_to_clean
+        @store = @store.map{|h| h}[(-@max_keys_mobility_to_clean+50)..-1].to_h 
+       end
+
        events.each do |e|
          e.set(CLIENT,client)
          @dim_to_enrich.each { |d| e.set(d, event.get(d)) if event.get(d) }
@@ -133,7 +182,7 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
          yield e
        end
        event.cancel
-       save_store
+       save_store(store_id)
      end    
  
   end  # def filter
