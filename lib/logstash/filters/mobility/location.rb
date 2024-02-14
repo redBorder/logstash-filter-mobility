@@ -116,7 +116,7 @@ class Location
       else
         if (location.t_last_seen - @t_last_seen >= ConfigVariables.consolidated_time)
           #repeat_locations[location.new_loc]
-          if consolidated == "outside"
+          if @consolidated == "outside"
             e =  LogStash::Event.new
             e.set(TIMESTAMP, @t_global)
             e.set(OLD_LOC, @consolidated)
