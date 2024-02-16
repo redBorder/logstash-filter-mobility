@@ -10,7 +10,7 @@ require_relative "utils/memcached_config"
 require_relative "mobility/location_data"
 
 module ConfigVariables
-  attr_accessor :consolidated_time, :expired_time,:max_dwell_time,:expired_repetitions_time, :max_keys_mobility_to_clean
+  attr_accessor :consolidated_time, :expired_time,:max_dwell_time,:expired_repetitions_time
   def self.setConsolidatedTime(value)
     @@consolidated_time = value
   end
@@ -42,15 +42,6 @@ module ConfigVariables
   def self.expired_repetitions_time
     @@expired_repetitions_time
   end
-
-  def self.setMaxKeysMobilityToClean(value)
-    @@max_keys_mobility_to_clean = value
-  end
-
-  def self.max_keys_mobility_to_clean
-    @@max_keys_mobility_to_clean
-  end
-
 end
 
 class LogStash::Filters::Mobility < LogStash::Filters::Base
@@ -63,8 +54,7 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
   config :max_dwell_time,             :validate => :number, :default => 1440,   :required => false
   config :expired_repetitions_time,   :validate => :number, :default => 10080,  :required => false
   config :memcached_server,           :validate => :string, :default => "",     :required => false
-  config :max_keys_mobility_to_clean, :validate => :number, :default => 100000, :required => false
-  config :clean_store_time,           :validate => :number, :default => 600,    :required => false
+  config :clean_store_time,           :validate => :number, :default => 60,    :required => false
   config :number_of_stores,           :validate => :number, :default => 10,     :required => false
   
   public
@@ -74,7 +64,7 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
     ConfigVariables.setExpiredTime(@expired_time)
     ConfigVariables.setMaxDwellTime(@max_dwell_time)
     ConfigVariables.setExpiredRepetitionsTime(@expired_repetitions_time)
-    ConfigVariables.setMaxKeysMobilityToClean(@max_keys_mobility_to_clean)
+
     @stores = {}
     @dim_to_enrich = [MARKET_UUID, ORGANIZATION_UUID, ZONE_UUID, NAMESPACE_UUID,
                    DEPLOYMENT_UUID, SENSOR_UUID, NAMESPACE, SERVICE_PROVIDER_UUID, 
@@ -88,16 +78,23 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
 
   # clean the store based on last_seen
   def clean_stores(number_of_stores)
+    events = []
     if Time.now.to_i > (@last_clean_time + @clean_store_time)
       puts "cleaning mobility stores....#{Time.now}"
       for store_id in 0 .. number_of_stores-1
         @store = stores_from_memcache(store_id)["mobility#{store_id}"] || {}
         ids_to_delete = []
         @store.each do |client| 
-          if client[1] && client[1]["campus_uuid"] && client[1]["campus_uuid"]["t_last_seen"]
-            if Time.now.to_i > (client[1]["campus_uuid"]["t_last_seen"] + (@expired_time + 60))
-              ids_to_delete.push(client[0])
-            end
+          next unless client[1] && client[1]["campus_uuid"] && client[1]["campus_uuid"]["t_last_seen"]
+
+          if Time.now.to_i > (client[1]["campus_uuid"]["t_last_seen"] + (@expired_time + 60))
+            puts "cleaning client with id #{client[0]}"
+            id = client[0]
+            ids_to_delete.push(id)
+            # Make events to "outside" with Campus, Building, Floor and Zone
+            cache_location = LocationData.location_from_cache(client[1], id)
+            outside_location = LocationData.location_to_outside(client[1], id, @clean_store_time)
+            events += cache_location.update_with_new_location_data(outside_location) 
           end
         end
         ids_to_delete.each{ |id| @store.delete(id) if @store.key? (id) }
@@ -105,6 +102,7 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
       end
       @last_clean_time = Time.now.to_i
     end
+    return events
   end
 
   def save_store(id)
@@ -126,15 +124,6 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
     data
   end
 
-  def find_data_from_stores(key)
-    data = nil
-    @stores.values.each do |store|
-      data = store[key]
-      break if data
-    end
-    data
-  end
-
   def hash_mac(mac_address)
     Digest::SHA256.hexdigest(mac_address).to_i(16)
   end
@@ -145,34 +134,28 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
   end
 
   def filter(event)
-     clean_stores(@number_of_stores)
      client = event.get(CLIENT).to_s
      namespace = (event.get(NAMESPACE_UUID)) ? event.get(NAMESPACE_UUID) : ""
      id = client + namespace
      if client
+       events = clean_stores(@number_of_stores)
        store_id = assign_store(client, @number_of_stores)
        @store = stores_from_memcache(store_id)["mobility#{store_id}"] || {}
-       events = []
        current_location = LocationData.location_from_message(event,id)
        cache_data = find_data_from_stores(id)
-       @store.delete(id) if @store.key? (id)
+       if @store.key? (id)
+         @store.delete(id)
+       end
        if cache_data
          cache_location = LocationData.location_from_cache(cache_data, id)
          events += cache_location.update_with_new_location_data(current_location)
          location_map = cache_location.to_map
          @store[id] = location_map 
          @logger.debug? && @logger.debug("Updating client ID[{#{id}] with [{#{location_map}]")
-         #puts "updating.."
        else
          location_map = current_location.to_map
          @store[id] = location_map
          @logger.debug? && @logger.debug("Creating client ID[{#{id}] with [{#{location_map}]")
-         #puts "creating.."
-       end
-
-       #limit the number of keys in the store
-       if @store.keys.count > @max_keys_mobility_to_clean
-        @store = @store.map{|h| h}[(-@max_keys_mobility_to_clean+50)..-1].to_h 
        end
 
        events.each do |e|

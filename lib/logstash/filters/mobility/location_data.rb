@@ -93,6 +93,28 @@ class LocationData
   def timestamp=(timestamp)
     @t_global_last_seen = timestamp
   end
+  
+  # Used when cleaning clients from memcached
+  def self.location_to_outside(raw_data,uuid_prefix, clean_store_time)
+    timestamp = Utils.timestamp_to_long(raw_data[TIMESTAMP]) + clean_store_time
+    lat_long = raw_data[LATLONG].to_s
+    builder = LocationData.new
+    builder.timestamp = timestamp
+    
+    campus = raw_data[CAMPUS_UUID].to_s
+    builder.campus = Campus.new(timestamp, timestamp, timestamp, campus, "outside", campus, "outside", lat_long, uuid_prefix) if campus
+    
+    building = raw_data[BUILDING_UUID].to_s
+    builder.building = Building.new(timestamp, timestamp, timestamp, building, "outside", building, "outside", lat_long, uuid_prefix) if building
+
+    floor = raw_data[FLOOR_UUID].to_s
+    builder.floor = Floor.new(timestamp, timestamp, timestamp, floor, "outside", floor, "outside", lat_long, uuid_prefix) if floor
+
+    zone = raw_data[ZONE_UUID].to_s
+    builder.zone = Zone.new(timestamp, timestamp, timestamp, zone, "outside", zone, "outside", lat_long, uuid_prefix) if zone
+
+    return builder
+  end
 
   def self.location_from_message(raw_data, uuid_prefix)
     timestamp = Utils.timestamp_to_long(raw_data.get(TIMESTAMP))
