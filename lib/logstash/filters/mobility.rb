@@ -54,7 +54,7 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
   config :max_dwell_time,             :validate => :number, :default => 1440,   :required => false
   config :expired_repetitions_time,   :validate => :number, :default => 10080,  :required => false
   config :memcached_server,           :validate => :string, :default => "",     :required => false
-  config :clean_store_time,           :validate => :number, :default => 60,    :required => false
+  config :clean_store_time,           :validate => :number, :default => 600,    :required => false
   config :number_of_stores,           :validate => :number, :default => 10,     :required => false
   
   public
