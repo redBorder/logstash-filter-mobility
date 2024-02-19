@@ -1,7 +1,7 @@
 # encoding: utf-8
 
-require_relative "../utils/mobility_constant"
-require_relative "../utils/utils"
+require_relative "../util/mobility_constant"
+require_relative "../util/utils"
 require_relative "building"
 require_relative "campus"
 require_relative "floor"
@@ -95,8 +95,8 @@ class LocationData
   end
   
   # Used when cleaning clients from memcached
-  def self.location_to_outside(raw_data,uuid_prefix, clean_store_time)
-    timestamp = Utils.timestamp_to_long(raw_data[TIMESTAMP]) + clean_store_time
+  def self.location_to_outside(raw_data,uuid_prefix)
+    timestamp = Time.now.to_i
     lat_long = raw_data[LATLONG].to_s
     builder = LocationData.new
     builder.timestamp = timestamp

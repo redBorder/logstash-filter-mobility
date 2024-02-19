@@ -2,8 +2,8 @@
 
 require "logstash/util/loggable"
 
-require_relative "../utils/mobility_constant"
-require_relative "../utils/utils"
+require_relative "../util/mobility_constant"
+require_relative "../util/utils"
 
 class Location
   include LogStash::Util::Loggable
