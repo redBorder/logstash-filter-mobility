@@ -50,7 +50,7 @@ class Location
     end
   end
 
-
+  # TODO: refactor this code
   def update_with_new_location(location, location_type) 
     to_send = Array.new
     new_repetitions = @repeat_locations[location.new_loc] || 0
@@ -60,8 +60,17 @@ class Location
     popularity = (Float((new_repetitions + 1).to_i / ((Float(@uuid) + 1) * 100.0) / 100.0)).round(1)
 
     if (location.t_last_seen - @t_last_seen >= ConfigVariables.expired_time) 
+      # In the past we were doing the outside with
+      # @t_last_seen (old one)
+      # but this cause the events to be ouside the 
+      # druid window so never indexed
+      # Thats why we move this updates variables
+      # before the event.set
+      @t_global = location.t_global
+      @t_last_seen = location.t_last_seen
+
       e = LogStash::Event.new
-      e.set(TIMESTAMP, @t_last_seen + MINUTE)
+      e.set(TIMESTAMP, @t_last_seen - MINUTE)
       e.set(OLD_LOC, @new_loc)
       e.set(NEW_LOC, "outside")
       e.set(DWELL_TIME, @dwell_time)
@@ -73,8 +82,6 @@ class Location
       e.set(TYPE, location_type) 
       to_send.push(e)
 
-      @t_global = location.t_global
-      @t_last_seen = location.t_last_seen
       @t_transition = location.t_transition
       @old_loc = location.old_loc
       @new_loc = location.new_loc
