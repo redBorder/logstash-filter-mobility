@@ -39,4 +39,5 @@ module MobilityConstant
   STATUS="dot11_status" unless defined? STATUS
   CLIENT_PROFILE="client_profile" unless defined? CLIENT_PROFILE
   CLIENT_RSSI_NUM="client_rssi_num" unless defined? CLIENT_RSSI_NUM
+  WIRELESS_STATION="wireless_station" unless defined? WIRELESS_STATION
 end
