@@ -50,23 +50,13 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
 
   config_name "mobility"
 
-  # config :consolidated_time,          :validate => :number, :default => 180,    :required => false
-  config :consolidated_time,          :validate => :number, :default => 60,    :required => false
-  
+  config :consolidated_time,          :validate => :number, :default => 180,    :required => false
   # expired_time should be smaller than expired_repetitions_time
-  # config :expired_time,               :validate => :number, :default => 1200,   :required => false
-  config :expired_time,               :validate => :number, :default => 180,   :required => false
-
+  config :expired_time,               :validate => :number, :default => 1200,   :required => false
   config :max_dwell_time,             :validate => :number, :default => 1440,   :required => false
-
-  # config :expired_repetitions_time,   :validate => :number, :default => 10080,  :required => false
-  config :expired_repetitions_time,   :validate => :number, :default => 180,  :required => false
-
+  config :expired_repetitions_time,   :validate => :number, :default => 10080,  :required => false
   config :memcached_server,           :validate => :string, :default => "",     :required => false
-
-  # config :clean_store_time,           :validate => :number, :default => 600,    :required => false
-  config :clean_store_time,           :validate => :number, :default => 120,    :required => false
-
+  config :clean_store_time,           :validate => :number, :default => 600,    :required => false
   config :number_of_stores,           :validate => :number, :default => 10,     :required => false
   config :update_stores_rate,         :validate => :number,  :default => 60,      :required => false
 
@@ -103,7 +93,7 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
   # generate its movements to ouside
   # return Array of events
   def expired_events_from_memcached
-    puts "[mobility] removing expired clients at #{Time.now}"
+    @logger.debug? && @logger.debug("[mobility] removing expired clients at #{Time.now}")
     expired_events  = []
 
     @number_of_stores.times do |store_id|
@@ -118,7 +108,7 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
         if client[1]["campus_uuid"]["consolidated"] == "outside"
             # Client was already ouside the campus so we dont need to calculate
             # outside movements, just delete it from the cache
-            puts "[mobility] client with id #{client_id} was already outside so we only need to delete it from cache"
+            @logger.debug? && @logger.debug("[mobility] client with id #{client_id} was already outside so we only need to delete it from cache")
             expired_clients.push(client_id)
         else
           client_campus_last_seen = client[1]["campus_uuid"]["t_last_seen"]
@@ -134,20 +124,20 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
 
           # Get old client location from the cache 
           old_client_location  = LocationData.location_from_cache(client_cache_data, client_id) 
-          puts "[mobility] Old client location was #{old_client_location.to_map}"
+          @logger.debug? && @logger.debug("[mobility] Old client location was #{old_client_location.to_map}")
 
           # Create the new client location as he moved to ouside
           new_client_location = LocationData.location_to_outside(client_cache_data, client_id)
-          puts "[mobility] new client location is #{new_client_location.to_map}"
+          @logger.debug? && @logger.debug("[mobility] new client location is #{new_client_location.to_map}")
 
           expired_events_client = old_client_location.update_with_new_location_data(new_client_location)
-          puts "[mobility] number of generated expired events is #{expired_events_client.count}"  
+          @logger.debug? && @logger.debug("[mobility] number of generated expired events is #{expired_events_client.count}")
 
           if expired_events_client.count > 0
-            puts "[mobility] Expiring client with id #{client_id}"
+            @logger.debug? && @logger.debug("[mobility] Expiring client with id #{client_id}")
             expired_clients.push(client_id)
           else
-            puts "[mobility] Could not expire client with id #{client_id} because no movements to ouside were generated"
+            @logger.debug? && @logger.debug("[mobility] Could not expire client with id #{client_id} because no movements to outside were generated")
           end
 
           # Enrich expired events with client_mac and namespace_uuid
@@ -230,14 +220,12 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
      end
      
      unless client_cache_data
-       @logger.debug? && @logger.debug("Creating client ID[{#{client_id}] with [{#{new_client_location.to_map}]")
-       puts "[mobility] Creating client ID[{#{client_id}] with [{#{new_client_location.to_map}]"
+       @logger.debug? && @logger.debug("[mobility] Creating client ID[{#{client_id}] with [{#{new_client_location.to_map}]")
  
        # Create the client_id in the store with the new location
        store[client_id] = new_client_location.to_map
      else
-       @logger.debug? && @logger.debug("Updating client ID[{#{client_id}] with [{#{new_client_location.to_map}]")
-       puts "Updating client ID[{#{client_id}] with [{#{new_client_location.to_map}]"
+       @logger.debug? && @logger.debug("[mobility] Updating client ID[{#{client_id}] with [{#{new_client_location.to_map}]")
 
        old_client_location = LocationData.location_from_cache(client_cache_data, client_id)
 
@@ -260,14 +248,14 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
 
      # Also check for expired clients and generated it movements to outside
      expired_events = time_to_remove_expired_clients? ? expired_events_from_memcached : []
-     puts "[mobility] expired_events are #{expired_events.count}"
+     @logger.debug? && @logger.debug("[mobility] expired_events are #{expired_events.count}")
 
      # Enrich expired_events with @dim_to_enrich and yield
      expired_events.each do |expired_event|
 
-       puts "[mobility] Enriching expired_event: #{expired_event.to_hash}"
+       @logger.debug? && @logger.debug("[mobility] Enriching expired_event: #{expired_event.to_hash}")
        enrich_data = @store_manager.enrich(expired_event.to_hash)
-       puts "[mobility] enrich data is: #{enrich_data}"
+       @logger.debug? && @logger.debug("[mobility] enrich data is: #{enrich_data}")
 
        @dim_to_enrich.each { |d| expired_event.set(d, enrich_data[d]) if enrich_data[d] }
        expired_event.to_hash.each { |k,v| e.set("discard", true) if @not_empty_dims.include? k and (v.nil? or v == "") }

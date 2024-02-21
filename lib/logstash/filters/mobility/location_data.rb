@@ -10,19 +10,21 @@ require_relative "zone"
 class LocationData
   include MobilityConstant
  
-  attr_accessor :t_global_last_seen, :campus, :building, :floor, :zone
+  attr_accessor :t_global_last_seen, :campus, :building, :floor, :zone, :wireless_station
 
-  def initialize(timestamp = nil, campus = nil, building = nil, floor = nil, zone = nil) 
+  def initialize(timestamp = nil, campus = nil, building = nil, floor = nil, zone = nil, wireless_station = nil) 
     @t_global_last_seen = timestamp
     @campus = campus
     @building = building
     @floor = floor
-    @zone = zone  
+    @zone = zone 
+    @wireless_station = wireless_station 
   end
 
   def update_with_new_location_data(location_data)
     to_send = [] 
     @t_global_last_seen = location_data.t_global_last_seen
+    @wireless_station = location_data.wireless_station 
 
     if @campus && location_data.campus
       to_send += @campus.update_with_new_location(location_data.campus, "campus")
@@ -47,17 +49,23 @@ class LocationData
     elsif location_data.zone
         @zone = location_data.zone
     end
+
+    # Enrich all events with wireles_station
+    to_send.each do |event|
+      event.set(WIRELESS_STATION, @wireless_station)
+    end
+
     return to_send
   end
 
   def to_map
     map = Hash.new
     map[T_GLOBAL_LAST_SEEN] = @t_global_last_seen
+    map[WIRELESS_STATION] = @wireless_station if @wireless_station 
     map[CAMPUS_UUID] = @campus.to_map if @campus
     map[BUILDING_UUID] = @building.to_map if @building
     map[FLOOR_UUID] = @floor.to_map if @floor
     map[ZONE_UUID] = @zone.to_map if @zone
-    
     return map
   end
 
@@ -74,6 +82,7 @@ class LocationData
   def self.location_from_cache(raw_data, uuid_prefix)
     builder = LocationData.new
     builder.timestamp = Utils.timestamp_to_long(raw_data[T_GLOBAL_LAST_SEEN])
+    builder.wireless_station = raw_data[WIRELESS_STATION]
    
     campus_data = raw_data[CAMPUS_UUID]
     builder.campus = Campus.new(campus_data,uuid_prefix) if campus_data
@@ -100,6 +109,7 @@ class LocationData
     lat_long = raw_data[LATLONG].to_s
     builder = LocationData.new
     builder.timestamp = timestamp
+    builder.wireless_station = raw_data[WIRELESS_STATION]
     
     campus = raw_data[CAMPUS_UUID].to_s
     builder.campus = Campus.new(timestamp, timestamp, timestamp, campus, "outside", campus, "outside", lat_long, uuid_prefix) if campus
@@ -121,7 +131,8 @@ class LocationData
     lat_long = raw_data.get(LATLONG).to_s
     builder = LocationData.new
     builder.timestamp = timestamp
-    
+    builder.wireless_station = raw_data.get(WIRELESS_STATION)
+ 
     campus = raw_data.get(CAMPUS_UUID).to_s
     builder.campus = Campus.new(timestamp, timestamp, timestamp, "outside", campus, "outside", campus, lat_long, uuid_prefix) if campus
     
