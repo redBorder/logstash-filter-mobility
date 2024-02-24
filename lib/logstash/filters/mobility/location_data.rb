@@ -1,13 +1,12 @@
 # encoding: utf-8
+require 'logstash/util/loggable'
 
-require_relative "../util/mobility_constant"
-require_relative "../util/utils"
-require_relative "building"
-require_relative "campus"
-require_relative "floor"
-require_relative "zone"
+require_relative '../util/mobility_constant'
+require_relative '../util/utils'
+require_relative 'location'
 
 class LocationData
+  include LogStash::Util::Loggable
   include MobilityConstant
  
   attr_accessor :t_global_last_seen, :campus, :building, :floor, :zone, :wireless_station
@@ -21,41 +20,28 @@ class LocationData
     @wireless_station = wireless_station 
   end
 
-  def update_with_new_location_data(location_data)
-    to_send = [] 
-    @t_global_last_seen = location_data.t_global_last_seen
-    @wireless_station = location_data.wireless_station 
+  def update_location(new_location)
+    @t_global_last_seen = new_location.t_global_last_seen
 
-    if @campus && location_data.campus
-      to_send += @campus.update_with_new_location(location_data.campus, "campus")
-    elsif location_data.campus
-	@campus = location_data.campus
+    events = [] 
+    locations = {campus: @campus, building: @building, floor: @floor, zone: @zone}
+
+    locations.each do |type, location|
+      if location && new_location.send(type)
+        events += location.update_location(new_location.send(type), type.to_s)
+      elsif new_location.send(type)
+        instance_variable_set("@#{type}", new_location.send(type))
+      end
     end
 
-    if @building && location_data.building
-        to_send += building.update_with_new_location(location_data.building, "building")
-    elsif location_data.building
-        @building = location_data.building
-    end
-    
-    if @floor && location_data.floor
-        to_send += @floor.update_with_new_location(location_data.floor, "floor")
-    elsif location_data.floor
-        @floor = location_data.floor
-    end
-    
-    if @zone && location_data.zone
-        to_send += @zone.update_with_new_location(location_data.zone, "zone")
-    elsif location_data.zone
-        @zone = location_data.zone
-    end
+    @wireless_station = new_location.wireless_station 
 
     # Enrich all events with wireles_station
-    to_send.each do |event|
+    events.each do |event|
       event.set(WIRELESS_STATION, @wireless_station)
     end
 
-    return to_send
+    return events
   end
 
   def to_map
@@ -79,74 +65,69 @@ class LocationData
     return locations
   end
 
-  def self.location_from_cache(raw_data, uuid_prefix)
-    builder = LocationData.new
-    builder.timestamp = Utils.timestamp_to_long(raw_data[T_GLOBAL_LAST_SEEN])
-    builder.wireless_station = raw_data[WIRELESS_STATION]
-   
-    campus_data = raw_data[CAMPUS_UUID]
-    builder.campus = Campus.new(campus_data,uuid_prefix) if campus_data
+  def self.create_from_cache(data, uuid_prefix)
+    t_global_last_seen = Utils.timestamp_to_long(data[T_GLOBAL_LAST_SEEN])
 
-    building_data = raw_data[BUILDING_UUID]
-    builder.building = Building.new(building_data,uuid_prefix) if building_data
+    campus = create_location_from_data(data[CAMPUS_UUID], uuid_prefix)
+    building = create_location_from_data(data[BUILDING_UUID], uuid_prefix)
+    floor = create_location_from_data(data[FLOOR_UUID], uuid_prefix)
+    zone = create_location_from_data(data[ZONE_UUID], uuid_prefix)
 
-    floor_data = raw_data[FLOOR_UUID]
-    builder.floor = Floor.new(floor_data,uuid_prefix) if floor_data
+    wireless_station = data[WIRELESS_STATION]
 
-    zone_data = raw_data[ZONE_UUID]
-    builder.zone = Zone.new(zone_data,uuid_prefix) if zone_data
-
-    return builder
+    new(t_global_last_seen, campus, building, floor, zone, wireless_station)
   end
 
-  def timestamp=(timestamp)
-    @t_global_last_seen = timestamp
-  end
-  
   # Used when cleaning clients from memcached
-  def self.location_to_outside(raw_data,uuid_prefix)
-    timestamp = Time.now.to_i
-    lat_long = raw_data[LATLONG].to_s
-    builder = LocationData.new
-    builder.timestamp = timestamp
-    builder.wireless_station = raw_data[WIRELESS_STATION]
-    
-    campus = raw_data[CAMPUS_UUID].to_s
-    builder.campus = Campus.new(timestamp, timestamp, timestamp, campus, "outside", campus, "outside", lat_long, uuid_prefix) if campus
-    
-    building = raw_data[BUILDING_UUID].to_s
-    builder.building = Building.new(timestamp, timestamp, timestamp, building, "outside", building, "outside", lat_long, uuid_prefix) if building
+  def self.create_from_data_to_outside(data,uuid_prefix)
+    t_global_last_seen = Time.now.to_i
 
-    floor = raw_data[FLOOR_UUID].to_s
-    builder.floor = Floor.new(timestamp, timestamp, timestamp, floor, "outside", floor, "outside", lat_long, uuid_prefix) if floor
+    campus = create_location_from_data_to_outside(data[CAMPUS_UUID], uuid_prefix, t_global_last_seen)
+    building = create_location_from_data_to_outside(data[BUILDING_UUID], uuid_prefix, t_global_last_seen)
+    floor = create_location_from_data_to_outside(data[FLOOR_UUID], uuid_prefix, t_global_last_seen)
+    zone = create_location_from_data_to_outside(data[ZONE_UUID], uuid_prefix, t_global_last_seen)
 
-    zone = raw_data[ZONE_UUID].to_s
-    builder.zone = Zone.new(timestamp, timestamp, timestamp, zone, "outside", zone, "outside", lat_long, uuid_prefix) if zone
+    wireless_station = data[WIRELESS_STATION]
 
-    return builder
+    new(t_global_last_seen, campus, building, floor, zone, wireless_station)
   end
 
-  def self.location_from_message(raw_data, uuid_prefix)
-    timestamp = Utils.timestamp_to_long(raw_data.get(TIMESTAMP))
-    lat_long = raw_data.get(LATLONG).to_s
-    builder = LocationData.new
-    builder.timestamp = timestamp
-    builder.wireless_station = raw_data.get(WIRELESS_STATION)
- 
-    campus = raw_data.get(CAMPUS_UUID).to_s
-    builder.campus = Campus.new(timestamp, timestamp, timestamp, "outside", campus, "outside", campus, lat_long, uuid_prefix) if campus
-    
-    building = raw_data.get(BUILDING_UUID).to_s
-    builder.building = Building.new(timestamp, timestamp, timestamp, "outside", building, "outside", building, lat_long, uuid_prefix) if building
+  def self.create_from_event(event, uuid_prefix)
+    t_global_last_seen = Utils.timestamp_to_long(event.get(TIMESTAMP))
+    lat_long = event.get(LATLONG).to_s
+    old_loc = consolidated = "outside"
 
-    floor = raw_data.get(FLOOR_UUID).to_s
-    builder.floor = Floor.new(timestamp, timestamp, timestamp, "outside", floor, "outside", floor, lat_long, uuid_prefix) if floor
+    campus = create_location_from_event(event, uuid_prefix, CAMPUS_UUID, t_global_last_seen, lat_long, old_loc, consolidated)
+    building = create_location_from_event(event, uuid_prefix, BUILDING_UUID, t_global_last_seen, lat_long, old_loc, consolidated)
+    floor = create_location_from_event(event, uuid_prefix, FLOOR_UUID, t_global_last_seen, lat_long, old_loc, consolidated)
+    zone = create_location_from_event(event, uuid_prefix, ZONE_UUID, t_global_last_seen, lat_long, old_loc, consolidated)
 
-    zone = raw_data.get(ZONE_UUID).to_s
-    builder.zone = Zone.new(timestamp, timestamp, timestamp, "outside", zone, "outside", zone, lat_long, uuid_prefix) if zone
+    wireless_station = event.get(WIRELESS_STATION)
 
-    return builder
+    new(t_global_last_seen, campus, building, floor, zone, wireless_station)
   end
 
+  private
+
+  def self.create_location_from_data(data, uuid_prefix)
+    Location.create_from_data(data, uuid_prefix) if data
+  end
+
+  def self.create_location_from_data_to_outside(data, uuid_prefix, timestamp)
+    if data
+      data[NEW_LOC] = "outside"
+      data[ENTRANCE] = "outside"
+      data[CONSOLIDATED] = "outside"
+      data[T_GLOBAL] = timestamp
+      data[T_LAST_SEEN] = timestamp
+      Location.create_from_data(data, uuid_prefix)
+    end
+  end
  
+  def self.create_location_from_event(event, uuid_prefix, key, timestamp, lat_long, old_loc, consolidated)
+    new_loc = entrance = event.get(key).to_s
+    return nil if new_loc.empty?
+  
+    Location.create_from_params(timestamp, timestamp, timestamp, old_loc, new_loc, consolidated, entrance, lat_long, uuid_prefix)
+  end
 end

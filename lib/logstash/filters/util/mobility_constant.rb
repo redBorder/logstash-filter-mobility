@@ -40,4 +40,13 @@ module MobilityConstant
   CLIENT_PROFILE="client_profile" unless defined? CLIENT_PROFILE
   CLIENT_RSSI_NUM="client_rssi_num" unless defined? CLIENT_RSSI_NUM
   WIRELESS_STATION="wireless_station" unless defined? WIRELESS_STATION
+  WLC_PSQL_STORE="wlc-psql" unless defined? WLC_PSQL_STORE
+  SENSOR_PSQL_STORE="sensor-psql" unless defined? SENSOR_PSQL_STORE
+  NMSP_STORE_MEASURE = "nmsp-measure" unless defined? NMSP_STORE_MEASURE
+  NMSP_STORE_INFO = "nmsp-info" unless defined? NMSP_STORE_INFO
+  RADIUS_STORE = "radius" unless defined? RADIUS_STORE
+  DWELL_STORE = "dwell" unless defined? DWELL_STORE
+  COUNTER_STORE="counterStore" unless defined? COUNTER_STORE
+  FLOWS_NUMBER="flowsNumber" unless defined? FLOWS_NUMBER
+  LOCATION_STORE="location" unless defined? LOCATION_STORE
 end
