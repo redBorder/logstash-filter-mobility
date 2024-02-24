@@ -41,21 +41,21 @@ class Cache
   # generate its movements to ouside
   # return Array of events
   def clean_expired_clients
-    logger.info("[mobility] Calculating expired clients at #{Time.now}")
+    logger.debug("[mobility] Calculating expired clients at #{Time.now}")
     expired_events  = []
     expired_clients_counter = 0
 
     stores.each do |store_id, store|
       expired_clients = []
       
-      logger.info("[mobility] Looping over store (#{store_id}): #{store}")
+      logger.debug("[mobility] Looping over store (#{store_id}): #{store}")
 
       store.each do |client_data|
         id = client_data[0]
         client_mac = id[0..16]
         namespace_uuid = id[17..-1]
         data = client_data[1]
-        logger.info("[mobility] Checking if client (#{id}) is expired..")
+        logger.debug("[mobility] Checking if client (#{id}) is expired..")
         next unless data && data["campus_uuid"] && data["campus_uuid"]["t_last_seen"] && client_expired?(data["campus_uuid"]["t_last_seen"]) && valid_mac_address?(client_mac)
   
 
@@ -65,13 +65,13 @@ class Cache
         if data["campus_uuid"]["consolidated"] == "outside"
           expired_clients.push(client) 
           expired_clients_counter += 1
-          logger.info("[mobility] Client (#{client.id}) expired but was already outside, deleting from cache only")
+          logger.debug("[mobility] Client (#{client.id}) expired but was already outside, deleting from cache only")
         else
-          expired_events_client += client.update_location_to_outside
+          expired_events_client += client.update_location_to_outside!
           if expired_events_client.count <= 0
-            logger.info("[mobility] Could not expire client (#{client.id}): no events to ouside were generated")
+            logger.debug("[mobility] Could not expire client (#{client.id}): no events to ouside were generated")
           else
-            logger.info("[mobility] Adding client (#{client.id}) expired with #{expired_events_client.count} events to outside")
+            logger.debug("[mobility] Adding client (#{client.id}) expired with #{expired_events_client.count} events to outside")
             expired_clients.push(client)
             expired_clients_counter += 1
           end
@@ -92,8 +92,8 @@ class Cache
       save_store(store_id, store) if expired_clients.count > 0
     end # stores.each_with_index
 
-    logger.info("[mobility] Number of expired clients #{expired_clients_counter}")
-    logger.info("[mobility] Number of expired events #{expired_events.count}")
+    logger.debug("[mobility] Number of expired clients #{expired_clients_counter}")
+    logger.debug("[mobility] Number of expired events #{expired_events.count}")
     expired_events 
   end # client_expired_clients
 
@@ -104,7 +104,7 @@ class Cache
     Configuration.number_of_stores.times do |id|
       mobility_stores.push("mobility#{id}")
     end
-    logger.info("[mobility] mobility_stores: #{mobility_stores}")
+    logger.debug("[mobility] mobility_stores: #{mobility_stores}")
     @memcached.get_multi(mobility_stores) || {}
   end
 
@@ -147,7 +147,7 @@ class Cache
   end
 
   def save_store(store_name, store)
-    logger.info("[mobility] Saving store #{store_name} with #{store}")
+    logger.debug("[mobility] Saving store #{store_name} with #{store}")
     @memcached.set(store_name, store)
   end
 

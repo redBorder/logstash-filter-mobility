@@ -73,7 +73,7 @@ class Location
     popularity = (Float((new_location_repetitions + 1).to_i / ((Float(@uuid) + 1) * 100.0) / 100.0)).round(1)
 
     if location_time_expired?(new_location)
-      logger.info("[mobility] (#{new_location_type}) Move to outside because time expired")
+      logger.debug("[mobility] (#{new_location_type}) Move to outside because time expired")
 
       @t_global = new_location.t_global
       @t_last_seen = new_location.t_last_seen
@@ -94,7 +94,7 @@ class Location
     # In case it is a new location -> we update location and wait
     # for another update to consolidate it
     if new_location_change?(new_location)
-      logger.info("[mobility] (#{new_location_type}) Moving from [{#{@new_loc}}] to [{#{new_location.new_loc}}]")
+      logger.debug("[mobility] (#{new_location_type}) Moving from [{#{@new_loc}}] to [{#{new_location.new_loc}}]")
 
       @t_last_seen = new_location.t_last_seen
       @old_loc = @new_loc
@@ -112,12 +112,13 @@ class Location
     
     # If we were already in same location and the location was consolidated
     # we generate the events needed to calculate the dwell time 
+    # NOTE: in case we reach the max_dwell_time we will stop generating events on consolidate states
     if @consolidated == new_location.new_loc
       if (!same_minute?(@t_last_seen, new_location.t_last_seen))
         events += consolidated_location_events(new_location, new_location_type, new_location_repetitions, popularity)
       end
       @t_last_seen = new_location.t_last_seen
-      logger.info("[mobility] (#{new_location_type}) Consolidated state, sending [{#{events.size()}}] events")
+      logger.debug("[mobility] (#{new_location_type}) Consolidated state, sending [{#{events.size()}}] events")
      
       return events
     end
@@ -126,7 +127,7 @@ class Location
    
     # In case we dont consolidate yet we do nothing
     if !time_to_consolidate?(new_location)
-      logger.info("[mobility] (#{new_location_type}) Not consolidated yet")
+      logger.debug("[mobility] (#{new_location_type}) Not consolidated yet")
 
       return events
     end
@@ -134,13 +135,13 @@ class Location
     # Start the consolidation process
 
     if @consolidated == "outside"
-      logger.info("[mobility] (#{new_location_type}) Transitioning from outside")
+      logger.debug("[mobility] (#{new_location_type}) Transitioning from outside")
       events += transition_from_outside_events(new_location, new_location_type, popularity)
       @consolidated = @entrance
       @t_transition += MINUTE
     else
       if (@t_global + MINUTE) <= (@t_transition - MINUTE)
-        logger.info("[mobility] (#{new_location_type}) Calculating dwell time events from last session")
+        logger.debug("[mobility] (#{new_location_type}) Calculating dwell time events from last session")
         events += from_last_session_events(new_location, new_location_type, old_location_repetitions, popularity)
       end
       # And start new session by increasing the session uuid
@@ -156,13 +157,13 @@ class Location
     @dwell_time = 1
     # Transition
     if @t_transition <= @t_last_seen
-      logger.info("[mobility] (#{new_location_type}) Transitoning to new location")
+      logger.debug("[mobility] (#{new_location_type}) Transitoning to new location")
       events += transition_to_new_location_events(new_location, new_location_type, popularity)
     end
 
     @dwell_time = 1
     if (@t_last_seen + MINUTE) <= new_location.t_last_seen
-      logger.info("[mobility] (#{new_location_type}) Calculating dwell time events for this location")
+      logger.debug("[mobility] (#{new_location_type}) Calculating dwell time events for this location")
       events += new_location_static_events(new_location, new_location_type, new_location_repetitions, popularity)
     end
  
@@ -177,7 +178,7 @@ class Location
     @consolidated = new_location.new_loc
     @lat_long = new_location.lat_long
 
-    logger.info("[mobility] (#{new_location_type}) Location was consolidated, sending [{#{events.count}}] events")
+    logger.debug("[mobility] (#{new_location_type}) Location was consolidated, sending [{#{events.count}}] events")
 
     return events
   end

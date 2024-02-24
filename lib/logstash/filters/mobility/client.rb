@@ -16,7 +16,7 @@ class Client
     @client_mac = event.get(CLIENT).to_s
     @namespace_uuid = event.get(NAMESPACE_UUID) || ""
     @location = LocationData.create_from_event(event, id)
-    logger.info("[mobility] Created client with ID #{id} and location #{location.to_map}")
+    logger.debug("[mobility] Created client with ID #{id} and location #{location.to_map}")
   end
 
   def initialize_from_cache(client_mac, namespace_uuid, data)
@@ -45,8 +45,8 @@ class Client
     client_mac + namespace_uuid
   end
  
-  def update_location(new_location)
-    logger.info("[mobility] Updating location for client with ID #{id}, 
+  def update_location!(new_location)
+    logger.debug("[mobility] Updating location for client with ID #{id}, 
                  \nFROM: #{location.to_map} \nTO: #{new_location.to_map}")
 
     events = @location.update_location!(new_location) 
@@ -54,13 +54,13 @@ class Client
     events
   end
 
-  def update_location_from_event(event)
+  def update_location_from_event!(event)
     new_location = LocationData.create_from_event(event, id)
-    update_location(new_location)
+    update_location!(new_location)
   end
 
-  def update_location_to_outside
+  def update_location_to_outside!
     new_location = LocationData.create_from_data_to_outside(location.to_map, id)
-    update_location(new_location)
+    update_location!(new_location)
   end
 end

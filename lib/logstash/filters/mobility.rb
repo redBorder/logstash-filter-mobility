@@ -24,22 +24,19 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
 
   config_name "mobility"
 
-  # config :consolidated_time,          :validate => :number, :default => 180,    :required => false
-  config :consolidated_time,          :validate => :number, :default => 10,    :required => false
-  # expired_time should be smaller than expired_repetitions_time
-  # config :expired_time,               :validate => :number, :default => 1200,   :required => false
-  config :expired_time,               :validate => :number, :default => 180,   :required => false
-  config :max_dwell_time,             :validate => :number, :default => 1440,   :required => false
-  # config :expired_repetitions_time,   :validate => :number, :default => 10080,  :required => false
-  config :expired_repetitions_time,   :validate => :number, :default => 180,  :required => false
+  config :consolidated_time,          :validate => :number, :default => 180,    :required => false # seconds
+  config :expired_time,               :validate => :number, :default => 1200,   :required => false # seconds, should be smaller than expired_repetitions_time
+  config :max_dwell_time,             :validate => :number, :default => 1440,   :required => false # minutes
+  config :expired_repetitions_time,   :validate => :number, :default => 10080,  :required => false
+  config :clean_store_time,           :validate => :number, :default => 600,    :required => false # seconds
+  config :update_stores_rate,         :validate => :number, :default => 60,     :required => false # seconds
+
   config :memcached_server,           :validate => :string, :default => "",     :required => false
-  # config :clean_store_time,           :validate => :number, :default => 600,    :required => false
-  config :clean_store_time,           :validate => :number, :default => 10,    :required => false
   config :number_of_stores,           :validate => :number, :default => 10,     :required => false
-  config :update_stores_rate,         :validate => :number, :default => 60,     :required => false
 
   public
   def register
+    @logger.info("[mobility] Registering logstash-filter-mobility")
     @config.each{ |key, value| Configuration.set_config("#{key}", value) }
 
     @dimensions_to_enrich = [MARKET_UUID, ORGANIZATION_UUID, ZONE_UUID, NAMESPACE_UUID,
@@ -66,7 +63,7 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
     client_mac = event.get(CLIENT).to_s
     
     client = cache.load_client(client_mac, namespace_uuid) || Client.create_from_event(event)
-    client_events = client.update_location_from_event(event)
+    client_events = client.update_location_from_event!(event)
 
     cache.save_client(client) 
 

@@ -20,7 +20,7 @@ class LocationData
     @wireless_station = wireless_station 
   end
 
-  def update_location(new_location)
+  def update_location!(new_location)
     @t_global_last_seen = new_location.t_global_last_seen
 
     events = [] 
@@ -28,7 +28,7 @@ class LocationData
 
     locations.each do |type, location|
       if location && new_location.send(type)
-        events += location.update_location(new_location.send(type), type.to_s)
+        events += location.update_location!(new_location.send(type), type.to_s)
       elsif new_location.send(type)
         instance_variable_set("@#{type}", new_location.send(type))
       end
