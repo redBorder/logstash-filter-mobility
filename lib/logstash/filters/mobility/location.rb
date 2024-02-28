@@ -190,6 +190,7 @@ class Location
     map = {}
     map[T_GLOBAL] = @t_global
     map[T_LAST_SEEN] =  @t_last_seen
+    map[T_SWAP_LOC] =  @t_swap_loc
     map[T_TRANSITION] = @t_transition
     map[DWELL_TIME] = @dwell_time
     map[OLD_LOC] =  @old_loc
