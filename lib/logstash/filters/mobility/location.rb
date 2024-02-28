@@ -9,12 +9,13 @@ class Location
   include LogStash::Util::Loggable
   include MobilityConstant
   
-  attr_accessor :t_global, :t_last_seen, :t_transition, :dwell_time, :old_loc, :new_loc, 
+  attr_accessor :t_global, :t_last_seen, :t_swap_loc, :t_transition, :dwell_time, :old_loc, :new_loc, 
                 :consolidated, :entrance, :lat_long, :uuid_prefix, :uuid, :repeat_locations
 
   def initialize_from_params(t_global, t_last_seen, t_transition, old_loc, new_loc, consolidated, entrance, lat_long, uuid_prefix)
     @t_global = t_global - t_global % 60
     @t_last_seen = t_last_seen - t_last_seen % 60
+    @t_swap_loc = Time.now.to_i # Update when swap locations (unless is to/from outside)
     @t_transition = t_transition - t_transition % 60
     @old_loc = old_loc
     @new_loc = new_loc
@@ -30,6 +31,7 @@ class Location
   def initialize_from_data(data, uuid_prefix)
     @t_global = Utils.timestamp_to_long(data[T_GLOBAL]) 
     @t_last_seen = Utils.timestamp_to_long(data[T_LAST_SEEN]) 
+    @t_swap_loc = data[T_SWAP_LOC] || Time.now.to_i # Update when swap locations (unless is to/from outside)
     @t_transition = Utils.timestamp_to_long(data[T_TRANSITION])
     @old_loc = data[OLD_LOC].to_s
     @new_loc = data[NEW_LOC].to_s
@@ -97,6 +99,7 @@ class Location
       logger.debug("[mobility] (#{new_location_type}) Moving from [{#{@new_loc}}] to [{#{new_location.new_loc}}]")
 
       @t_last_seen = new_location.t_last_seen
+      @t_swap_loc = new_location.t_last_seen
       @old_loc = @new_loc
       @new_loc = new_location.new_loc
 
