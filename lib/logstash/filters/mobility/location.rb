@@ -70,7 +70,7 @@ class Location
       old_location_repetitions = 0
     end
 
-    popularity = (((new_location_repetitions + 1) / (Float(@uuid) + 1)*100.0).to_i/100.0).round(1)
+    popularity = (((new_location_repetitions) / (Float(@uuid) + 1)*100.0).to_i/100.0).round(1)
 
     if location_time_expired?(new_location)
       logger.debug("[mobility] (#{new_location_type}) Move to outside because time expired")
@@ -146,7 +146,7 @@ class Location
       end
       # And start new session by increasing the session uuid
       @uuid += 1
-      popularity = (((new_location_repetitions + 1) / (Float(@uuid) + 1)*100.0).to_i/100.0).round(1)
+      popularity = (((new_location_repetitions) / (Float(@uuid) + 1)*100.0).to_i/100.0).round(1)
     end
 
     if (same_minute?(@t_transition, @t_global))
