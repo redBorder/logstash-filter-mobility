@@ -18,6 +18,7 @@ module MobilityConstant
   OLD_LOC="old" unless defined? OLD_LOC
   CONSOLIDATED="consolidated" unless defined? CONSOLIDATED
   ENTRANCE="entrance" unless defined? ENTRANCE
+  T_SWAP_LOC="t_swap_loc" unless defined? T_SWAP_LOC
   TYPE="type" unless defined? TYPE
   REPEAT_LOCATION="repeat_location" unless defined? REPEAT_LOCATION
   REPETITIONS="repetitions" unless defined? REPETITIONS

@@ -31,6 +31,7 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
   config :clean_store_time,           :validate => :number, :default => 600,    :required => false # seconds
   config :update_stores_rate,         :validate => :number, :default => 60,     :required => false # seconds
 
+  config :client_clean_time,          :validate => :number, :default => 172800,  :required => false # seconds
   config :memcached_server,           :validate => :string, :default => "",     :required => false
   config :number_of_stores,           :validate => :number, :default => 10,     :required => false
 

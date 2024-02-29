@@ -20,8 +20,14 @@ class LocationData
     @wireless_station = wireless_station 
   end
 
+  def is_zone_static?(location, type)
+    type == "zone" && ((Time.now.to_i - location.t_swap_loc ) > Configuration.client_clean_time)
+  end
+
   def update_location!(new_location)
     @t_global_last_seen = new_location.t_global_last_seen
+
+    zone_static = false
 
     events = [] 
     locations = {campus: @campus, building: @building, floor: @floor, zone: @zone}
@@ -29,9 +35,16 @@ class LocationData
     locations.each do |type, location|
       if location && new_location.send(type)
         events += location.update_location!(new_location.send(type), type.to_s)
+        zone_static = is_zone_static?(location, type.to_s)
       elsif new_location.send(type)
         instance_variable_set("@#{type}", new_location.send(type))
       end
+    end
+
+    # Ignore movements of clients that dont swap between zones
+    if zone_static
+      logger.debug("[mobility] Zone static do not produce events")
+      return []
     end
 
     @wireless_station = new_location.wireless_station 

@@ -109,7 +109,7 @@ class Cache
   end
 
   def client_expired?(last_seen)
-    Time.now.to_i > (last_seen + (Configuration.expired_repetitions_time + 60))
+    Time.now.to_i > (last_seen + (Configuration.client_clean_time))
   end
 
   def hash_mac(mac_address)
