@@ -21,7 +21,7 @@ class LocationData
   end
 
   def is_zone_static?(location, type)
-    type == "zone" && ((Time.now.to_i - location.t_swap_loc ) > Configuration.client_clean_time)
+    type == "zone" && ((Time.now.to_i - location.t_swap_loc ) > Configuration.max_time_without_zone_movement)
   end
 
   def update_location!(new_location)
