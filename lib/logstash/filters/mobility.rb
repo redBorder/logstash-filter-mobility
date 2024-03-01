@@ -24,16 +24,16 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
 
   config_name "mobility"
 
-  config :consolidated_time,          :validate => :number, :default => 180,    :required => false # seconds
-  config :expired_time,               :validate => :number, :default => 1200,   :required => false # seconds, should be smaller than expired_repetitions_time
-  config :max_dwell_time,             :validate => :number, :default => 1440,   :required => false # minutes
-  config :expired_repetitions_time,   :validate => :number, :default => 10080,  :required => false # seconds
-  config :clean_store_time,           :validate => :number, :default => 600,    :required => false # seconds
-  config :update_stores_rate,         :validate => :number, :default => 60,     :required => false # seconds
-
-  config :client_clean_time,          :validate => :number, :default => 172800,  :required => false # seconds
-  config :memcached_server,           :validate => :string, :default => "",     :required => false
-  config :number_of_stores,           :validate => :number, :default => 10,     :required => false
+  config :consolidated_time,              :validate => :number, :default => 180,    :required => false # seconds (3 min)
+  config :expired_time,                   :validate => :number, :default => 1200,   :required => false # seconds (20 min), should be smaller than expired_repetitions_time
+  config :max_dwell_time,                 :validate => :number, :default => 1440,   :required => false # minutes (24h)
+  config :expired_repetitions_time,       :validate => :number, :default => 10080,  :required => false # seconds (2h 48min)
+  config :clean_store_time,               :validate => :number, :default => 600,    :required => false # seconds (10 min)
+  config :update_stores_rate,             :validate => :number, :default => 60,     :required => false # seconds (1 min)
+  config :max_time_without_movement,      :validate => :number, :default => 86400,  :required => false # seconds (24h)
+  
+  config :memcached_server,               :validate => :string, :default => "",     :required => false
+  config :number_of_stores,               :validate => :number, :default => 10,     :required => false
 
   public
   def register
