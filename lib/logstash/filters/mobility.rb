@@ -30,7 +30,7 @@ class LogStash::Filters::Mobility < LogStash::Filters::Base
   config :expired_repetitions_time,       :validate => :number, :default => 10080,  :required => false # seconds (2h 48min)
   config :clean_store_time,               :validate => :number, :default => 600,    :required => false # seconds (10 min)
   config :update_stores_rate,             :validate => :number, :default => 60,     :required => false # seconds (1 min)
-  config :max_time_without_zone_movement, :validate => :number, :default => 86400,  :required => false # seconds (24h)
+  config :max_time_without_movement,      :validate => :number, :default => 86400,  :required => false # seconds (24h)
   
   config :memcached_server,               :validate => :string, :default => "",     :required => false
   config :number_of_stores,               :validate => :number, :default => 10,     :required => false
